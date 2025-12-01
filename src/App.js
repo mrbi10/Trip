@@ -275,42 +275,45 @@ function Dashboard({
         </div>
       </section>
 
-      <section className="member-list">
-        <h2 className="section-title">All Members</h2>
+      {user.role === "admin" && (
+        <section className="member-list">
+          <h2 className="section-title">All Members</h2>
 
-        <div className="members-grid">
-          {payments
-            .sort((a, b) => (a.name === user.name ? -1 : 1))
-            .map((p) => {
-              const st =
-                p.paid >= perHeadCost
-                  ? "Paid"
-                  : p.paid > 0
-                    ? "Partial"
-                    : "Pending";
+          <div className="members-grid">
+            {payments
+              .sort((a, b) => (a.name === user.name ? -1 : 1))
+              .map((p) => {
+                const st =
+                  p.paid >= perHeadCost
+                    ? "Paid"
+                    : p.paid > 0
+                      ? "Partial"
+                      : "Pending";
 
-              return (
-                <div
-                  className={`member-card ${p.name === user.name ? "current-user-highlight" : ""
-                    }`}
-                  key={p.name}
-                >
-                  <div className="member-name">
-                    {p.name}{" "}
-                    {p.name === user.name && (
-                      <span className="you-tag">(You)</span>
-                    )}
+                return (
+                  <div
+                    className={`member-card ${p.name === user.name ? "current-user-highlight" : ""
+                      }`}
+                    key={p.name}
+                  >
+                    <div className="member-name">
+                      {p.name}
+                      {p.name === user.name && (
+                        <span className="you-tag">(You)</span>
+                      )}
+                    </div>
+
+                    <div className={`member-payment-status ${styles[st]}`}>
+                      <span className="status-dot" />
+                      {money(p.paid)}
+                    </div>
                   </div>
+                );
+              })}
+          </div>
+        </section>
+      )}
 
-                  <div className={`member-payment-status ${styles[st]}`}>
-                    <span className="status-dot" />
-                    {money(p.paid)}
-                  </div>
-                </div>
-              );
-            })}
-        </div>
-      </section>
     </div>
   );
 }
