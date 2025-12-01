@@ -1,0 +1,201 @@
+/* GLOBAL THEME */
+
+:root {
+  --bg-main: radial-gradient(circle at top left, #0f172a, #111827, #0f172a);
+  --card-bg: rgba(255,255,255,0.06);
+  --card-border: rgba(255,255,255,0.08);
+  --blur-bg: rgba(255,255,255,0.1);
+  --font-main: 'Inter', sans-serif;
+  --green: #10b981;
+  --red: #ef4444;
+  --yellow: #f59e0b;
+  --gradient-btn: linear-gradient(90deg, #10b981, #06b6d4);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg-main);
+  font-family: var(--font-main);
+  color: white;
+}
+
+/* LAYOUT */
+
+.page-container {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* LOGIN PAGE */
+
+.login-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-main);
+}
+
+.login-card {
+  width: 360px;
+  padding: 30px;
+  border-radius: 18px;
+  backdrop-filter: blur(15px);
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: 0 0 40px rgba(0,0,0,0.4);
+  text-align: center;
+  animation: fadeInUp .6s ease;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.login-card h2 {
+  margin-bottom: 20px;
+  font-size: 26px;
+  font-weight: bold;
+}
+
+.login-input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 14px;
+  border-radius: 10px;
+  background: #1e293b;
+  color: white;
+  border: 1px solid #334155;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  cursor: pointer;
+  background: var(--gradient-btn);
+  color: #0f172a;
+  font-weight: bold;
+  transition: .25s ease;
+}
+
+.login-btn:hover {
+  transform: scale(1.03);
+}
+
+/* DASHBOARD */
+
+.header {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-title {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 18px;
+  padding: 22px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 25px rgba(0,0,0,0.3);
+  animation: fadeIn .7s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.grid {
+  display: grid;
+  gap: 20px;
+}
+
+.grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.stat-number {
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.small-label {
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+/* MEMBER LIST */
+
+.members-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.member-card {
+  padding: 14px;
+  background: #1e293b80;
+  border-radius: 14px;
+  border: 1px solid #2d374880;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.status-paid {
+  background: var(--green);
+}
+
+.status-partial {
+  background: var(--yellow);
+}
+
+.status-none {
+  background: var(--red);
+}
+
+/* BUTTONS */
+
+.button {
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border);
+  background: rgba(255,255,255,0.08);
+  color: white;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.button:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 768px) {
+  .header-title {
+    font-size: 22px;
+  }
+}
