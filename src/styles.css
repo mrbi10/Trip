@@ -392,3 +392,279 @@ h2 {
 .login-card, .dashboard-layout {
     animation: fadeIn 0.8s ease-out;
 }
+
+/* Base resets */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: Inter, sans-serif;
+  background: #f5f7fa;
+  color: #222;
+}
+
+.page-container {
+  min-height: 100vh;
+}
+
+/* Center loading */
+.center-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100vh;
+  align-items: center;
+}
+
+/* Simple spinner */
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #ddd;
+  border-top-color: #3498db;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* LOGIN */
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 30px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: white;
+  padding: 28px;
+  border-radius: 14px;
+  box-shadow: 0 4px 25px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.logo-placeholder {
+  font-size: 42px;
+  margin-bottom: 10px;
+}
+
+.auth-input {
+  width: 100%;
+  margin: 10px 0;
+  padding: 13px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 15px;
+  outline: none;
+}
+
+.auth-input:focus {
+  border-color: #3498db;
+}
+
+.login-btn {
+  width: 100%;
+  background: #3498db;
+  border: none;
+  color: white;
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 16px;
+  margin-top: 12px;
+  cursor: pointer;
+}
+
+/* HEADER */
+.main-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  border-bottom: 2px solid #eaeaea;
+}
+
+.header-title {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.user-profile {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logout-btn {
+  background: #e74c3c;
+  padding: 8px 14px;
+  font-size: 13px;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+}
+
+/* SECTION TITLES */
+.section-title {
+  margin: 20px 0 12px 0;
+  padding: 0 20px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* GRID CARDS - RESPONSIVE */
+.grid-cards-3 {
+  display: grid;
+  gap: 18px;
+  padding: 0 20px;
+}
+
+/* Desktop: 3 columns */
+@media (min-width: 800px) {
+  .grid-cards-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Tablet: 2 columns */
+@media (min-width: 550px) and (max-width: 799px) {
+  .grid-cards-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile: 1 column */
+@media (max-width: 549px) {
+  .grid-cards-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* STAT CARDS */
+.stat-card {
+  background: white;
+  padding: 20px;
+  border-radius: 14px;
+  position: relative;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #666;
+}
+
+.stat-number {
+  font-size: 26px;
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+.card-icon {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  font-size: 26px;
+  opacity: 0.35;
+}
+
+.days-left {
+  font-size: 32px;
+}
+
+/* PAYMENT CARD */
+.my-payment-card {
+  margin: 10px 20px;
+  padding: 18px;
+  border-radius: 14px;
+  color: white;
+  font-size: 18px;
+}
+
+.status-paid {
+  background: #27ae60;
+}
+
+.status-partial {
+  background: #f1c40f;
+  color: #000;
+}
+
+.status-pending {
+  background: #e74c3c;
+}
+
+.payment-amount {
+  font-weight: 600;
+  font-size: 24px;
+}
+
+.due-info {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+/* MEMBERS GRID */
+.members-grid {
+  padding: 0 20px 30px 20px;
+  display: grid;
+  gap: 16px;
+}
+
+/* Desktop: 3 per row */
+@media (min-width: 900px) {
+  .members-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Tablet: 2 per row */
+@media (min-width: 600px) and (max-width: 899px) {
+  .members-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Mobile: 1 per row */
+@media (max-width: 599px) {
+  .members-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.member-card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.06);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.member-payment-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.current-user-highlight {
+  border: 2px solid #3498db;
+}
+
+.you-tag {
+  font-size: 12px;
+  color: #3498db;
+}
