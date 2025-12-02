@@ -48,12 +48,25 @@ function CountdownTimer({ startDate }) {
 
   if (timeLeft.isPast) {
     return (
-      <div className="countdown-card past">
-        <div className="countdown-status">Trip is Underway! 🥳</div>
-        <div className="countdown-message">The adventure has begun.</div>
+      <div className="countdown-card past" style={{ position: "relative" }}>
+        <div className="countdown-status">Day of the Trip! 🎉</div>
+        <div className="countdown-message">Have an amazing journey!</div>
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background:
+              "url('https://media.tenor.com/fu7DE5jHcqsAAAAj/confetti-celebrate.gif') center/cover no-repeat",
+            opacity: 0.3,
+            borderRadius: "12px",
+          }}
+        />
       </div>
     );
   }
+
 
   return (
     <div className={`countdown-card ${isClose ? "countdown-urgent" : ""}`}>
@@ -114,9 +127,7 @@ function App() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState(false);
-
-
-
+  const [showWelcome, setShowWelcome] = useState(false);
 
 
   useEffect(() => {
@@ -204,9 +215,13 @@ function App() {
       setLoggedInUser(user);
       localStorage.setItem("tripUser", JSON.stringify(user));
       setLoginError(false);
-    } else {
-      setLoginError(true);
+      setShowWelcome(true);
+
+      setTimeout(() => {
+        setShowWelcome(false);
+      }, 1200);
     }
+
   };
 
 
@@ -224,6 +239,34 @@ function App() {
     myPaid >= perHead ? "Paid" : myPaid > 0 ? "Partial" : "Pending";
 
   const memberCount = users.length;
+
+  {
+    showWelcome && loggedInUser && (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "white",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          flexDirection: "column",
+          zIndex: 9999,
+          animation: "fadeOut 1s ease forwards",
+        }}
+      >
+        <img
+          src="https://media.tenor.com/09xG7FpC18sAAAAj/compass-wander.gif"
+          alt="welcome-gif"
+          style={{ width: "120px", marginBottom: "20px" }}
+        />
+
+        <h1 style={{ fontWeight: "800", color: "#065f46" }}>
+          Welcome back, {loggedInUser.name} 🧭
+        </h1>
+      </div>
+    )
+  }
 
   const appStyles = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
@@ -276,6 +319,12 @@ function App() {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
+
+    @keyframes fadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
     
     .section-title {
         font-size: 1.8rem;
@@ -953,6 +1002,33 @@ function App() {
   return (
     <React.Fragment>
       <style dangerouslySetInnerHTML={{ __html: appStyles }} />
+
+      {showWelcome && loggedInUser && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "white",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            flexDirection: "column",
+            zIndex: 9999,
+            animation: "fadeOut 4s ease forwards",
+          }}
+        >
+          <img
+            src="https://media.tenor.com/09xG7FpC18sAAAAj/compass-wander.gif"
+            alt="welcome-gif"
+            style={{ width: "120px", marginBottom: "20px" }}
+          />
+
+          <h1 style={{ fontWeight: "800", color: "#065f46" }}>
+            Welcome back, {loggedInUser.name} 
+          </h1>
+        </div>
+      )}
+
       <div className="page-container">
         {loading && (
           <div className="center-screen">
@@ -1040,6 +1116,7 @@ function LoginScreen({ login, users, loginError, setLoginError }) {
   );
 }
 
+
 function ExpenseSplit({ expenses, moneyFormatter, totalCost, memberCount }) {
   const totalCalculated = expenses.reduce((sum, item) => sum + item.cost, 0);
   const effectiveMemberCount = memberCount > 0 ? memberCount : 1;
@@ -1098,7 +1175,6 @@ function ExpenseSplit({ expenses, moneyFormatter, totalCost, memberCount }) {
 
 
 
-
 function Dashboard({
   user,
   payments,
@@ -1121,6 +1197,21 @@ function Dashboard({
       setMyProgress(percent);
     }, 200);
   }, [myPayment, perHeadCost]);
+
+  const [weather, setWeather] = useState(null);
+
+  useEffect(() => {
+    const latitude = 13.3183;
+    const longitude = 75.7720;
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,is_day,precipitation,rain,weather_code&daily=sunrise,sunset,uv_index_max&timezone=auto`;
+
+    fetch(url)
+      .then(res => res.json())
+      .then(data => setWeather(data))
+      .catch(err => console.error("Weather fetch error:", err));
+  }, []);
+
 
   const money = (amt) =>
     new Intl.NumberFormat("en-IN", {
@@ -1156,6 +1247,7 @@ function Dashboard({
           </button>
         </div>
       </header>
+
 
 
 
@@ -1274,10 +1366,28 @@ function Dashboard({
         </div>
       </section>
 
+      {weather && (
+        <section style={{ marginBottom: "30px" }}>
+          <h2 className="section-title">Current Weather at Chikmagalur </h2>
 
-
-
-
+          <div className="stat-card primary-card" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            <div style={{ fontSize: "2rem", fontWeight: "800" }}>
+              {weather.current.temperature_2m}°C
+            </div>
+            <div style={{ color: "#6b7280", fontWeight: "600" }}>
+              Rain: {weather.current.rain || 0} mm
+              <br />
+              UV Index: {weather.daily.uv_index_max[0]}
+            </div>
+            <div style={{ fontSize: "0.9rem", marginTop: "5px", opacity: 0.8 }}>
+              Sunrise: {weather.daily.sunrise[0].split("T")[1]}
+              <br />
+              Sunset: {weather.daily.sunset[0].split("T")[1]}
+            </div>
+            <div className="card-icon">🌤️</div>
+          </div>
+        </section>
+      )}
 
 
 
