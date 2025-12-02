@@ -117,6 +117,8 @@ function App() {
 
 
 
+
+
   useEffect(() => {
     const saved = localStorage.getItem("tripUser");
     if (saved) {
@@ -979,7 +981,7 @@ function App() {
             logout={logout}
             expenses={expenses}
             memberCount={memberCount}
-           
+
           />
         )}
       </div>
@@ -1107,8 +1109,18 @@ function Dashboard({
   logout,
   expenses,
   memberCount,
-  
+
 }) {
+
+  const [myProgress, setMyProgress] = React.useState(0);
+
+  useEffect(() => {
+    const percent = Math.min((myPayment / perHeadCost) * 100, 100);
+
+    setTimeout(() => {
+      setMyProgress(percent);
+    }, 200);
+  }, [myPayment, perHeadCost]);
 
   const money = (amt) =>
     new Intl.NumberFormat("en-IN", {
@@ -1187,6 +1199,57 @@ function Dashboard({
 
       <hr className="divider" />
 
+      <section>
+        <h2 className="section-title">Your Contribution</h2>
+
+        <div
+          className={`my-payment-card status-${paymentStatus.toLowerCase()}`}
+          style={{ marginBottom: "30px" }}
+        >
+          <div className="payment-amount">{money(myPayment)}</div>
+          <div className="payment-amount-label">You Have Paid</div>
+
+          <div className="payment-status">
+            Status: {paymentStatus}
+            {paymentStatus !== "Paid" && (
+              <span className="due-info">
+                | Due: {money(perHeadCost - myPayment)}
+              </span>
+            )}
+          </div>
+
+
+          <div
+            style={{
+              width: "100%",
+              marginTop: "20px",
+              background: "#e5e7eb",
+              height: "12px",
+              borderRadius: "8px",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: `${myProgress}%`,
+                background:
+                  paymentStatus === "Paid"
+                    ? "#10b981"
+                    : paymentStatus === "Partial"
+                      ? "#f59e0b"
+                      : "#ef4444",
+                borderRadius: "8px",
+                transition: "width 1.2s cubic-bezier(0.22, 0.61, 0.36, 1)",
+              }}
+            />
+          </div>
+
+        </div>
+      </section>
+
+      <hr className="divider" />
+
       {/* TOTAL COLLECTION PROGRESS */}
       <section style={{ marginTop: "30px" }}>
         <h2 className="section-title">Group Payment Progress</h2>
@@ -1214,7 +1277,8 @@ function Dashboard({
 
 
 
-      <hr className="divider" />
+
+
 
 
       {user.role === "admin" && (
