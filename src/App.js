@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 
+
+
 const SHEET_ID = process.env.REACT_APP_SHEET_ID;
 const USERS_SHEET = process.env.REACT_APP_USERS_SHEET;
 const PAYMENTS_SHEET = process.env.REACT_APP_PAYMENTS_SHEET;
@@ -112,6 +114,8 @@ function App() {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loginError, setLoginError] = useState(false);
+
+
 
   useEffect(() => {
     const saved = localStorage.getItem("tripUser");
@@ -257,7 +261,10 @@ function App() {
         animation: spin 1s linear infinite;
         margin-bottom: 10px;
     }
-    
+
+
+
+   
     .loading-text {
         font-size: 1.1rem;
         color: #555;
@@ -349,6 +356,16 @@ function App() {
 .select-input option {
   padding: 10px;
 }
+
+
+
+
+
+.gallery-modal button {
+  margin-top: 20px;
+  padding: 10px 20px;
+}
+
 
     
     .logout-btn:hover {
@@ -962,6 +979,7 @@ function App() {
             logout={logout}
             expenses={expenses}
             memberCount={memberCount}
+           
           />
         )}
       </div>
@@ -1074,6 +1092,11 @@ function ExpenseSplit({ expenses, moneyFormatter, totalCost, memberCount }) {
   );
 }
 
+
+
+
+
+
 function Dashboard({
   user,
   payments,
@@ -1084,7 +1107,9 @@ function Dashboard({
   logout,
   expenses,
   memberCount,
+  
 }) {
+
   const money = (amt) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -1119,6 +1144,8 @@ function Dashboard({
           </button>
         </div>
       </header>
+
+
 
       <section className="stat-summary">
         <h2 className="section-title">Trip Overview</h2>
@@ -1184,8 +1211,10 @@ function Dashboard({
         </div>
       </section>
 
-      <hr className="divider" />
 
+
+
+      <hr className="divider" />
 
 
       {user.role === "admin" && (
