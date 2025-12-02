@@ -334,6 +334,20 @@ function App() {
         transition: background-color 0.2s ease;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
+
+    .select-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%23065f46' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 18px;
+  cursor: pointer;
+}
+
+.select-input option {
+  padding: 10px;
+}
+
     
     .logout-btn:hover {
         background-color: #dc2626;
