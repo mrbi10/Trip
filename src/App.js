@@ -1024,7 +1024,7 @@ function App() {
           />
 
           <h1 style={{ fontWeight: "800", color: "#065f46" }}>
-            Welcome back, {loggedInUser.name} 
+            Welcome back, {loggedInUser.name}
           </h1>
         </div>
       )}
@@ -1032,8 +1032,21 @@ function App() {
       <div className="page-container">
         {loading && (
           <div className="center-screen">
-            <div className="loading-spinner" />
-            <p className="loading-text">Fetching data…</p>
+            <div
+              style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                border: "5px solid #d1fae5",
+                borderTop: "5px solid #10b981",
+                animation: "spin 1s linear infinite",
+                marginBottom: "20px",
+              }}
+            />
+            <h2 style={{ fontWeight: 700, color: "#065f46" }}>Loading your trip…</h2>
+            <p style={{ color: "#374151", fontSize: "0.9rem", marginTop: "6px" }}>
+              Please wait a moment
+            </p>
           </div>
         )}
 
