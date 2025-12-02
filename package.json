@@ -1,6 +1,6 @@
 {
   "name": "trip-dashboard",
-  "homepage": "https://mrbi10.github.io/Trip",
+  "homepage": "https://trip.mrbi.live/",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
