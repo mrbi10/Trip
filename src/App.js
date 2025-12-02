@@ -11,6 +11,8 @@ const formatTime = (value) => String(Math.max(0, value)).padStart(2, '0');
 function CountdownTimer({ startDate }) {
   const [timeLeft, setTimeLeft] = useState({});
   const tripStart = new Date("2025-12-25 14:00").getTime();
+  const isClose = timeLeft.days <= 5 && !timeLeft.isPast;
+
 
   useEffect(() => {
     if (!startDate || isNaN(tripStart)) return;
@@ -52,7 +54,7 @@ function CountdownTimer({ startDate }) {
   }
 
   return (
-    <div className="countdown-card">
+    <div className={`countdown-card ${isClose ? "countdown-urgent" : ""}`}>
       <div className="countdown-label">Trip Starts In:</div>
       <div className="countdown-grid">
         <div className="time-unit">
@@ -372,6 +374,46 @@ function App() {
         transition: transform 0.2s;
     }
     
+    /* Glow + shake when less than 5 days left */
+.countdown-urgent {
+  animation: pulseGlow 1.5s infinite alternate ease-in-out;
+  border-bottom: 5px solid #ef4444 !important;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0px rgba(239, 68, 68, 0.4);
+    transform: translateY(0);
+  }
+  100% {
+    box-shadow: 0 0 18px rgba(239, 68, 68, 0.8);
+    transform: translateY(-1px);
+  }
+}
+
+.scroll-top-btn {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  background: #10b981;
+  color: white;
+  border: none;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+  cursor: pointer;
+  transition: transform 0.2s ease, background-color 0.2s ease;
+  z-index: 999;
+}
+
+.scroll-top-btn:hover {
+  transform: scale(1.1);
+  background: #059669;
+}
+
+
     .stat-card:hover {
         transform: translateY(-3px);
     }
@@ -803,6 +845,38 @@ function App() {
         font-weight: 600;
         border-left: 5px solid #fbbf24;
     }
+
+    .progress-wrapper {
+  margin-top: 10px;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #374151;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 12px;
+  background-color: #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #10b981;
+  transition: width 0.6s ease-in-out;
+  border-radius: 10px;
+}
+
         
 
     /* RESPONSIVENESS */
@@ -940,7 +1014,7 @@ function LoginScreen({ login, users, loginError, setLoginError }) {
           <p className="login-error-message">Invalid name or password. Please try again.</p>
         )}
 
-        <button className="login-btn">Enter 🚀</button>
+        <button className="login-btn">Enter</button>
       </form>
     </div>
   );
@@ -1038,7 +1112,7 @@ function Dashboard({
 
         <div className="user-profile">
           <span className="welcome-text">
-            Welcome, {user.name} ({user.role})
+            Welcome, {user.name}
           </span>
           <button className="logout-btn" onClick={logout}>
             Logout
@@ -1086,6 +1160,34 @@ function Dashboard({
 
       <hr className="divider" />
 
+      {/* TOTAL COLLECTION PROGRESS */}
+      <section style={{ marginTop: "30px" }}>
+        <h2 className="section-title">Group Payment Progress</h2>
+
+        <div className="progress-wrapper">
+          <div className="progress-labels">
+            <span>Collected: {money(payments.reduce((sum, p) => sum + p.paid, 0))}</span>
+            <span>Total Target: {money(perHeadCost * memberCount)}</span>
+          </div>
+
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{
+                width: `${(payments.reduce((sum, p) => sum + p.paid, 0) /
+                  (perHeadCost * memberCount)) *
+                  100
+                  }%`,
+              }}
+            />
+          </div>
+        </div>
+      </section>
+
+      <hr className="divider" />
+
+
+
       {user.role === "admin" && (
         <section className="member-list">
           <h2 className="section-title">Member Payment Tracker</h2>
@@ -1121,6 +1223,23 @@ function Dashboard({
           </div>
         </section>
       )}
+
+      <button
+        className="scroll-top-btn"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="white"
+          viewBox="0 0 24 24"
+          width="26"
+          height="26"
+        >
+          <path d="M12 4l-8 8h5v8h6v-8h5z" />
+        </svg>
+      </button>
+
+
 
     </div>
   );
