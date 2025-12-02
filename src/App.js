@@ -897,20 +897,21 @@ function LoginScreen({ login, users, loginError, setLoginError }) {
         <div className="logo-placeholder">🗺️</div>
         <h2>Trip Dashboard</h2>
 
-        <input
-          className="auth-input"
-          placeholder="Select Name"
+        <select
+          className="auth-input select-input"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          list="usernames"
           required
-        />
-
-        <datalist id="usernames">
+        >
+          <option value="" disabled>Select Name</option>
           {users.map((u) => (
-            <option key={u.name} value={u.name} />
+            <option key={u.name} value={u.name}>
+              {u.name}
+            </option>
           ))}
-        </datalist>
+        </select>
+
+
 
         <input
           type="password"
