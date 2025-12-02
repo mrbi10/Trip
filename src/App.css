@@ -1,38 +1,634 @@
-.App {
-  text-align: center;
+:root {
+  --background: #1f2937; /* Dark Slate */
+  --card: #374151; /* Medium Slate */
+  --text: #f3f4f6; /* Light Gray */
+  --text-light: #d1d5db; /* Lighter Gray */
+  --primary: #60a5fa; /* Blue */
+  --secondary: #34d399; /* Green */
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --border: #4b5563;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+body {
+  margin: 0;
+  font-family: "Inter", sans-serif;
+  background-color: var(--background);
+  color: var(--text);
   min-height: 100vh;
+}
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+/* --------------------------------------------- */
+/*  LOGIN SCREEN                                  */
+/* --------------------------------------------- */
+.login-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 40px);
+}
+
+.login-card {
+  background: var(--card);
+  padding: 40px;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+  text-align: center;
+  width: 100%;
+  max-width: 380px;
+}
+
+.logo-placeholder {
+  font-size: 4rem;
+  margin-bottom: 10px;
+}
+
+.login-card h2 {
+  color: var(--primary);
+  margin-top: 0;
+  margin-bottom: 25px;
+  font-weight: 700;
+}
+
+.auth-input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text);
+  box-sizing: border-box;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--secondary);
+  color: var(--background);
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.login-btn:hover {
+  background: #2cb683;
+}
+
+.login-btn:active {
+  transform: translateY(1px);
+}
+
+.login-error-message {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #f8717130; 
+    color: #ef4444; 
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+/* --------------------------------------------- */
+/*  DASHBOARD LAYOUT & UTILS                      */
+/* --------------------------------------------- */
+
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0 20px 0;
+  flex-wrap: wrap;
+}
+
+.header-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.trip-name {
+  font-style: italic;
+  font-weight: 700;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.welcome-text {
+  font-size: 0.95rem;
+  color: var(--text-light);
+}
+
+.logout-btn {
+  padding: 8px 15px;
+  background: var(--border);
+  color: var(--text);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.logout-btn:hover {
+  background: #6b7280;
+}
+
+.divider {
+  border: 0;
+  height: 1px;
+  background-color: var(--border);
+  margin: 30px 0;
+}
+
+.section-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 20px;
+  border-left: 4px solid var(--secondary);
+  padding-left: 10px;
+}
+
+/* --------------------------------------------- */
+/*  STAT SUMMARY                                  */
+/* --------------------------------------------- */
+
+.grid-cards-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: var(--text-light);
+  margin-bottom: 5px;
+}
+
+.stat-number {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.card-icon {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 3rem;
+  opacity: 0.15;
+}
+
+.primary-card {
+  border-bottom: 4px solid var(--primary);
+}
+.secondary-card {
+  border-bottom: 4px solid var(--secondary);
+}
+
+/* --------------------------------------------- */
+/*  COUNTDOWN TIMER (New Component Style)        */
+/* --------------------------------------------- */
+
+.countdown-card {
+  background: #f97316; /* Orange color */
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: var(--background);
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  text-align: center;
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
 }
 
-.App-link {
-  color: #61dafb;
+.countdown-label {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #fff;
 }
 
-@keyframes App-logo-spin {
-  from {
+.countdown-grid {
+  display: flex;
+  justify-content: space-around;
+  gap: 5px;
+}
+
+.time-unit {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 0;
+  border-radius: 8px;
+  flex-grow: 1;
+  min-width: 50px;
+}
+
+.time-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #000;
+}
+
+.unit-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  margin-top: 5px;
+}
+
+.countdown-card.past {
+    background: var(--card);
+    border: 2px solid var(--secondary);
+    color: var(--text);
+}
+
+.countdown-card.past .countdown-status {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--secondary);
+}
+
+.countdown-card.past .countdown-message {
+    font-size: 0.9rem;
+    color: var(--text-light);
+}
+
+/* --------------------------------------------- */
+/*  PAYMENT STATUS                                */
+/* --------------------------------------------- */
+
+.my-payment-card {
+  padding: 30px;
+  border-radius: 12px;
+  background: var(--card);
+  text-align: center;
+  position: relative;
+  box-shadow: var(--shadow-md);
+}
+
+.payment-amount {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.payment-amount-label {
+  color: var(--text-light);
+  font-size: 1rem;
+  margin-bottom: 20px;
+}
+
+.payment-status {
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 10px 20px;
+  display: inline-block;
+  border-radius: 50px;
+}
+
+.due-info {
+  font-weight: 500;
+  font-size: 1rem;
+  color: var(--text-light);
+  margin-left: 10px;
+}
+
+.my-payment-card.status-paid {
+  border: 2px solid var(--secondary);
+}
+.my-payment-card.status-paid .payment-amount {
+  color: var(--secondary);
+}
+.my-payment-card.status-paid .payment-status {
+  background: rgba(52, 211, 153, 0.2);
+  color: var(--secondary);
+}
+
+.my-payment-card.status-partial {
+  border: 2px solid #facc15; /* Yellow */
+}
+.my-payment-card.status-partial .payment-amount {
+  color: #facc15;
+}
+.my-payment-card.status-partial .payment-status {
+  background: rgba(250, 204, 21, 0.2);
+  color: #facc15;
+}
+
+.my-payment-card.status-pending {
+  border: 2px solid #f87171; /* Red */
+}
+.my-payment-card.status-pending .payment-amount {
+  color: #f87171;
+}
+.my-payment-card.status-pending .payment-status {
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+}
+
+/* --------------------------------------------- */
+/*  MEMBER LIST (ADMIN)                            */
+/* --------------------------------------------- */
+
+.members-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 15px;
+}
+
+.member-card {
+  background: var(--card);
+  padding: 15px 20px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-md);
+  border-left: 4px solid var(--border);
+  transition: border-left 0.2s;
+}
+
+.member-card:hover {
+  border-left: 4px solid var(--primary);
+}
+
+.current-user-highlight {
+  border-left: 4px solid var(--secondary) !important;
+}
+
+.member-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.you-tag {
+  background: var(--secondary);
+  color: var(--background);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-left: 8px;
+}
+
+.member-payment-status {
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.member-payment-status.status-paid .status-dot {
+  background-color: var(--secondary);
+}
+.member-payment-status.status-partial .status-dot {
+  background-color: #facc15;
+}
+.member-payment-status.status-pending .status-dot {
+  background-color: #f87171;
+}
+.paid-amount-value {
+  color: var(--text-light);
+}
+
+/* --------------------------------------------- */
+/*  EXPENSE TRACKER (Detailed List)               */
+/* --------------------------------------------- */
+
+.expense-container {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: var(--shadow-md);
+    overflow-x: auto; /* Ensure mobile readability */
+}
+
+.expense-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 1.0rem;
+    min-width: 600px;
+}
+
+.expense-table th {
+    color: var(--primary);
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+.expense-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #283340; /* Slightly lighter border */
+    vertical-align: top;
+}
+
+.expense-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.expense-table tbody tr:hover {
+    background: #283340; /* Subtle hover effect */
+}
+
+.expense-table .right-align {
+    text-align: right;
+}
+
+.expense-table .expense-category {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.expense-table .expense-cost {
+    font-weight: 700;
+    color: #f97316; /* Orange for cost */
+}
+
+.expense-table .expense-date {
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.expense-table .expense-notes {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    white-space: normal;
+}
+
+.text-wrap {
+    white-space: normal;
+}
+
+/* Summary Grid */
+.summary-title {
+    font-size: 1.2rem;
+    color: var(--text-light);
+    margin: 30px 0 15px;
+}
+
+.expense-summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.summary-card {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-md);
+}
+
+.summary-card.total {
+    border-left: 4px solid var(--primary);
+}
+.summary-card.per-member {
+    border-left: 4px solid var(--secondary);
+}
+
+.summary-label {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    margin-bottom: 5px;
+}
+
+.summary-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.summary-card.total .summary-value {
+    color: var(--primary);
+}
+
+.summary-card.per-member .summary-value {
+    color: var(--secondary);
+}
+
+
+.expense-warning {
+    margin-top: 20px;
+    padding: 15px;
+    background: #3e2626; /* Dark red background */
+    color: #f87171; /* Light red text */
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1px solid #ef4444;
+}
+
+/* --------------------------------------------- */
+/*  LOADING SCREEN                                */
+/* --------------------------------------------- */
+
+.center-screen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 40px);
+}
+
+.loading-spinner {
+  border: 8px solid var(--border);
+  border-top: 8px solid var(--primary);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  margin-top: 20px;
+  color: var(--text-light);
+  font-size: 1.1rem;
+}
+
+@keyframes spin {
+  0% {
     transform: rotate(0deg);
   }
-  to {
+  100% {
     transform: rotate(360deg);
+  }
+}
+
+/* --------------------------------------------- */
+/*  MEDIA QUERIES (Responsiveness)                */
+/* --------------------------------------------- */
+
+@media (max-width: 768px) {
+  .main-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+
+  .user-profile {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .grid-cards-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .member-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .expense-summary-grid {
+      grid-template-columns: 1fr;
+  }
+  
+  /* Make countdown responsive */
+  .time-value {
+      font-size: 1.2rem;
+  }
+  .unit-label {
+      font-size: 0.7rem;
   }
 }
