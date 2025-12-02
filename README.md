@@ -106,4 +106,3 @@ Author
 Built by Mrbi
 GitHub: https://github.com/mrbi10
 
-If you want a **premium README** with badges, screenshots, emojis, or a polished layout, just say the word.
