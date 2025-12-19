@@ -12,63 +12,82 @@ const formatTime = (value) => String(Math.max(0, value)).padStart(2, '0');
 
 function CountdownTimer({ startDate }) {
   const [timeLeft, setTimeLeft] = useState({});
-  const tripStart = new Date(`${startDate} 14:00`).getTime();
+  const tripStart = new Date("2025-12-25 14:00").getTime();
+  const isClose = timeLeft.days <= 5 && !timeLeft.isPast;
+
 
   useEffect(() => {
     if (!startDate || isNaN(tripStart)) return;
 
-    const timer = setInterval(() => {
-      const now = Date.now();
+    const calculateTimeLeft = () => {
+      const now = new Date().getTime();
       const distance = tripStart - now;
 
-      if (distance <= 0) {
-        clearInterval(timer);
+      if (distance < 0) {
         setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true });
         return;
       }
 
-      setTimeLeft({
-        days: Math.floor(distance / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((distance / (1000 * 60 * 60)) % 24),
-        minutes: Math.floor((distance / (1000 * 60)) % 60),
-        seconds: Math.floor((distance / 1000) % 60),
-        isPast: false,
-      });
-    }, 1000);
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      setTimeLeft({ days, hours, minutes, seconds, isPast: false });
+    };
+
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
   }, [startDate, tripStart]);
 
-  if (!Object.keys(timeLeft).length) {
-    return <div className="countdown-card loading">Calculating countdown…</div>;
+  if (Object.keys(timeLeft).length === 0) {
+    return <div className="countdown-card loading">Calculating countdown...</div>;
   }
 
   if (timeLeft.isPast) {
     return (
-      <div className="countdown-card past">
+      <div className="countdown-card past" style={{ position: "relative" }}>
         <div className="countdown-status">Day of the Trip! 🎉</div>
         <div className="countdown-message">Have an amazing journey!</div>
+
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background:
+              "url('https://media.tenor.com/fu7DE5jHcqsAAAAj/confetti-celebrate.gif') center/cover no-repeat",
+            opacity: 0.3,
+            borderRadius: "12px",
+          }}
+        />
       </div>
     );
   }
 
-  const urgency =
-    timeLeft.days <= 3 ? "critical" : timeLeft.days <= 7 ? "warning" : "normal";
 
   return (
-    <div className={`countdown-card countdown-${urgency}`}>
-      <div className="countdown-label">Trip Starts In</div>
-      <div className="countdown-message">
-        Only {timeLeft.days} day{timeLeft.days !== 1 && "s"} left 🚄
-      </div>
-
+    <div className={`countdown-card ${isClose ? "countdown-urgent" : ""}`}>
+      <div className="countdown-label">Trip Starts In:</div>
       <div className="countdown-grid">
-        {["days", "hours", "minutes", "seconds"].map((u) => (
-          <div key={u} className="time-unit">
-            <span className="time-value">{formatTime(timeLeft[u])}</span>
-            <span className="unit-label">{u}</span>
-          </div>
-        ))}
+        <div className="time-unit">
+          <span className="time-value">{formatTime(timeLeft.days)}</span>
+          <span className="unit-label">Days</span>
+        </div>
+        <div className="time-unit">
+          <span className="time-value">{formatTime(timeLeft.hours)}</span>
+          <span className="unit-label">Hours</span>
+        </div>
+        <div className="time-unit">
+          <span className="time-value">{formatTime(timeLeft.minutes)}</span>
+          <span className="unit-label">Mins</span>
+        </div>
+        <div className="time-unit">
+          <span className="time-value">{formatTime(timeLeft.seconds)}</span>
+          <span className="unit-label">Secs</span>
+        </div>
       </div>
     </div>
   );
@@ -424,16 +443,7 @@ function App() {
         transition: transform 0.2s;
     }
 
-    .countdown-warning {
-  border-bottom: 5px solid #f59e0b;
-}
-
-.countdown-critical {
-  border-bottom: 5px solid #ef4444;
-  animation: pulseGlow 1.2s infinite alternate;
-}
-
-    
+   =    
     /* Glow + shake when less than 5 days left */
 .countdown-urgent {
   animation: pulseGlow 1.5s infinite alternate ease-in-out;
