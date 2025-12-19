@@ -873,23 +873,42 @@ function App() {
         flex-wrap: wrap;
     }
 
-    .summary-card {
-        flex: 1;
-        min-width: 250px;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-    }
+.summary-card {
+  flex: 1;
+  min-width: 250px;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
 
-    .summary-card.total {
-        background-color: #eff6ff;
-        border: 2px solid #3b82f6;
-    }
+/* Total Spent */
+.summary-card.total {
+  background-color: #eff6ff;
+  border: 2px solid #3b82f6;
+}
 
-    .summary-card.per-member {
-        background-color: #f0fdf4;
-        border: 2px solid #10b981;
-    }
+/* Money In Hand */
+.summary-card.in-hand {
+  background-color: #eff6ff;
+  border: 2px solid #3b82f6;
+}
+
+/* Per Member */
+.summary-card.per-member {
+ background-color: #eff6ff;
+  border: 2px solid #3b82f6;
+}
+
+.summary-value.positive {
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.summary-value.negative {
+  color: #dc2626;
+  font-weight: 700;
+}
+
 
     .summary-label {
         font-size: 0.9rem;
@@ -1059,6 +1078,8 @@ function App() {
           />
         )}
 
+
+
         {!loading && loggedInUser && (
           <Dashboard
             user={loggedInUser}
@@ -1130,7 +1151,7 @@ function LoginScreen({ login, users, loginError, setLoginError }) {
 }
 
 
-function ExpenseSplit({ expenses, moneyFormatter, totalCost, memberCount }) {
+function ExpenseSplit({ expenses, moneyFormatter, user, moneyInHand, memberCount }) {
   const totalCalculated = expenses.reduce((sum, item) => sum + item.cost, 0);
   const effectiveMemberCount = memberCount > 0 ? memberCount : 1;
 
@@ -1162,17 +1183,41 @@ function ExpenseSplit({ expenses, moneyFormatter, totalCost, memberCount }) {
         </table>
       </div>
 
-      <h3 className="summary-title">Expense Summary</h3>
       <div className="expense-summary-grid">
+        {/* Total Spent */}
         <div className="summary-card total">
           <div className="summary-label">Total Spent (Breakdown)</div>
-          <div className="summary-value">{moneyFormatter(totalCalculated)}</div>
+          <div className="summary-value">
+            {moneyFormatter(totalCalculated)}
+          </div>
         </div>
+
+        {user.role === "admin" && (
+
+
+          <div className="summary-card in-hand">
+            <div className="summary-label">Money In Hand</div>
+            <div
+              className={`summary-value ${moneyInHand >= 10000 ? "positive" : "negative"
+                }`}
+            >
+              {moneyFormatter(moneyInHand)}
+            </div>
+          </div>
+
+        )}
+
+        {/* Per Member */}
         <div className="summary-card per-member">
-          <div className="summary-label">Per Member Split ({memberCount} )</div>
-          <div className="summary-value">{moneyFormatter(totalPerMember)}</div>
+          <div className="summary-label">
+            Per Member Split ({memberCount})
+          </div>
+          <div className="summary-value">
+            {moneyFormatter(totalPerMember)}
+          </div>
         </div>
       </div>
+
 
       {/* Show a warning if the calculated sum doesn't match the trip's defined total_cost */}
       {/* {totalCalculated !== totalCost && (
@@ -1244,6 +1289,11 @@ function Dashboard({
     Pending: "🔴",
   };
 
+  const totalCollected = payments.reduce((sum, p) => sum + p.paid, 0);
+  const totalSpent = expenses.reduce((sum, e) => sum + e.cost, 0);
+  const moneyInHand = totalCollected - totalSpent;
+
+
   return (
     <div className="dashboard-layout">
       <header className="main-header">
@@ -1293,9 +1343,11 @@ function Dashboard({
         <ExpenseSplit
           expenses={expenses}
           moneyFormatter={money}
-          totalCost={parseFloat(trip.total_cost) || 0}
           memberCount={memberCount}
+          moneyInHand={moneyInHand}
+          user={user}
         />
+
       ) : (
         <div className="expense-warning">
           No expense records found. Please update the expense sheet.
