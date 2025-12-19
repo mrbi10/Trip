@@ -423,6 +423,16 @@ function App() {
         min-height: 130px;
         transition: transform 0.2s;
     }
+
+    .countdown-warning {
+  border-bottom: 5px solid #f59e0b;
+}
+
+.countdown-critical {
+  border-bottom: 5px solid #ef4444;
+  animation: pulseGlow 1.2s infinite alternate;
+}
+
     
     /* Glow + shake when less than 5 days left */
 .countdown-urgent {
