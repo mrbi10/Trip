@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 
 
 
@@ -7,12 +8,6 @@ const USERS_SHEET = process.env.REACT_APP_USERS_SHEET;
 const PAYMENTS_SHEET = process.env.REACT_APP_PAYMENTS_SHEET;
 const TRIP_SHEET = process.env.REACT_APP_TRIP_SHEET;
 const EXPENSES_SHEET = process.env.REACT_APP_EXPENSES_SHEET;
-const CHECKLIST_MASTER = process.env.REACT_APP_CHECKLIST_MASTER;
-const CHECKLIST_STATUS = process.env.REACT_APP_CHECKLIST_STATUS;
-const CHECKLIST_API = "https://script.google.com/macros/s/AKfycbx6VtSqhi-MyUI1BXZ3xjJ4rX8nSvTOV4QeCTijOxlWPzm5kAlAjCJbgIvoYytkzCscyg/exec";
-
-
-
 
 const formatTime = (value) => String(Math.max(0, value)).padStart(2, '0');
 
@@ -56,8 +51,11 @@ function CountdownTimer({ startDate }) {
   if (timeLeft.isPast) {
     return (
       <div className="countdown-card past" style={{ position: "relative" }}>
-        <div className="countdown-status">Day of the Trip! 🎉</div>
-        <div className="countdown-message">Have an amazing journey!</div>
+        <div className="countdown-status">The Trip🎉</div>
+        <div className="countdown-message">
+          What a wonderful trip it was. These memories will always stay alive.
+          Thank you, everyone ❤️
+        </div>
 
         <div
           style={{
@@ -73,7 +71,6 @@ function CountdownTimer({ startDate }) {
       </div>
     );
   }
-
 
   return (
     <div className={`countdown-card ${isClose ? "countdown-urgent" : ""}`}>
@@ -382,7 +379,62 @@ function App() {
         background-color: #e5e7eb;
         margin: 40px 0;
     }
-    
+
+   .photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+/* Card wrapper */
+.photo-card {
+  overflow: hidden;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+  animation: fadeUp 0.6s ease forwards;
+  transform: translateY(10px);
+  opacity: 0;
+}
+
+/* Stagger animation */
+.photo-card:nth-child(1) { animation-delay: 0.05s }
+.photo-card:nth-child(2) { animation-delay: 0.1s }
+.photo-card:nth-child(3) { animation-delay: 0.15s }
+.photo-card:nth-child(4) { animation-delay: 0.2s }
+.photo-card:nth-child(5) { animation-delay: 0.25s }
+
+.photo-card img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+/* Desktop hover */
+@media (hover: hover) {
+  .photo-card:hover img {
+    transform: scale(1.06);
+  }
+}
+
+/* Mobile optimization */
+@media (max-width: 480px) {
+  .photo-card img {
+    height: 180px;
+  }
+}
+
+/* Animation */
+@keyframes fadeUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
     /* HEADER & USER PROFILE */
     .main-header {
         display: flex;
@@ -1276,70 +1328,41 @@ function Dashboard({
 }) {
 
   const [myProgress, setMyProgress] = React.useState(0);
-  const [checklistStatus, setChecklistStatus] = useState({});
-  const [checklistItems, setChecklistItems] = useState({});
-  const [toast, setToast] = useState(null);
-  const [savingItem, setSavingItem] = useState(null);
-
-  useEffect(() => {
-    const loadChecklistMaster = async () => {
-      const table = await fetchSheet(CHECKLIST_MASTER);
-      if (!table) return;
-
-      const grouped = {};
-
-      table.rows.slice(1).forEach(r => {
-        const category = r.c[0]?.v;
-        const item = r.c[1]?.v;
-
-        if (!category || !item) return;
-
-        if (!grouped[category]) grouped[category] = [];
-        grouped[category].push(item);
-      });
 
 
-      console.log(
-        table.rows.slice(1).map(r => ({
-          category: r.c[0]?.v,
-          item: r.c[1]?.v
-        }))
-      );
+  function PhotoGallery() {
+    const [photos, setPhotos] = useState([]);
 
-      setChecklistItems(grouped);
-    };
+    useEffect(() => {
+      fetch("/memories/manifest.json")
+        .then(res => res.json())
+        .then(files => {
+          setPhotos(files.map(name => `/memories/${name}`));
+        })
+        .catch(err => console.error("Gallery load failed", err));
+    }, []);
 
+    return (
+      <section style={{ marginTop: "40px" }}>
+        <h2 className="section-title">Trip Memories 📸</h2>
 
-
-    loadChecklistMaster();
-  }, []);
-
-
-  useEffect(() => {
-    if (!user?.name) return;
-
-    const loadChecklistStatus = async () => {
-      const table = await fetchSheet(CHECKLIST_STATUS);
-      if (!table) return;
-
-      const status = {};
-
-      table.rows.slice(1)
-        .filter(r => r.c[0]?.v === user.name)
-        .forEach(r => {
-          const category = r.c[1]?.v;
-          const item = r.c[2]?.v;
-          const checked = r.c[3]?.v === true;
-
-          if (!status[category]) status[category] = {};
-          status[category][item] = checked;
-        });
-
-      setChecklistStatus(status);
-    };
-
-    loadChecklistStatus();
-  }, [user.name]);
+        <div className="photo-grid">
+          {photos.map((src, i) => (
+            <motion.div
+              key={src}
+              className="photo-card"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: i * 0.05 }}
+              whileTap={{ scale: 0.96 }}
+            >
+              <img src={src} alt="trip memory" />
+            </motion.div>
+          ))}
+        </div>
+      </section>
+    );
+  }
 
 
   useEffect(() => {
@@ -1386,67 +1409,7 @@ function Dashboard({
   const totalCollected = payments.reduce((sum, p) => sum + p.paid, 0);
   const totalSpent = expenses.reduce((sum, e) => sum + e.cost, 0);
   const moneyInHand = totalCollected - totalSpent;
-
-
-  const toggleChecklistItem = async (category, item, checked) => {
-    const key = `${category}|${item}`;
-
-    try {
-      setSavingItem(key);
-
-      setChecklistStatus(prev => ({
-        ...prev,
-        [category]: {
-          ...(prev[category] || {}),
-          [item]: checked
-        }
-      }));
-
-      await fetch(CHECKLIST_API, {
-        method: "POST",
-        body: JSON.stringify({
-          user: user.name,
-          category,
-          item,
-          checked
-        })
-      });
-
-      setToast({
-        message: checked ? `✔ ${item} added` : `✖ ${item} removed`,
-        type: checked ? "success" : "info"
-      });
-
-      setTimeout(() => setToast(null), 1500);
-
-    } catch (err) {
-      setChecklistStatus(prev => ({
-        ...prev,
-        [category]: {
-          ...(prev[category] || {}),
-          [item]: !checked
-        }
-      }));
-
-      setToast({
-        message: "Checklist update failed",
-        type: "error"
-      });
-      setTimeout(() => setToast(null), 1500);
-
-    } finally {
-      setSavingItem(null);
-    }
-  };
-
-  const totalItems = Object.values(checklistItems)
-    .reduce((sum, items) => sum + items.length, 0);
-
-  const completed = Object.values(checklistStatus)
-    .reduce((sum, cat) => sum + Object.values(cat).filter(Boolean).length, 0);
-
-
-  const checklistLocked = new Date() >= new Date(trip.start_date);
+  const tripEnded = new Date("2025-12-25 14:00").getTime() < Date.now();
 
 
 
@@ -1467,31 +1430,6 @@ function Dashboard({
         </div>
       </header>
 
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            top: 20,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background:
-              toast.type === "success"
-                ? "#10b981"
-                : toast.type === "error"
-                  ? "#ef4444"
-                  : "#3b82f6",
-            color: "white",
-            padding: "10px 18px",
-            borderRadius: 8,
-            fontWeight: 600,
-            boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
-            zIndex: 9999,
-            animation: "fadeSlide 0.3s ease"
-          }}
-        >
-          {toast.message}
-        </div>
-      )}
 
       <section className="stat-summary">
         <h2 className="section-title">Trip Overview</h2>
@@ -1517,6 +1455,9 @@ function Dashboard({
       </section>
 
       <hr className="divider" />
+
+      {tripEnded && <PhotoGallery />}
+
 
       {expenses.length > 0 ? (
         <ExpenseSplit
@@ -1632,58 +1573,6 @@ function Dashboard({
           </div>
         </section>
       )}
-
-
-      <hr className="divider" />
-
-      <section>
-        <h2 className="section-title">
-          Travel Checklist
-          <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#6b7280", marginLeft: 10 }}>
-            ({completed} / {totalItems} packed)
-          </span>
-        </h2>
-
-        {Object.entries(checklistItems).map(([category, items]) => (
-          <div key={category} className="stat-card" style={{ marginBottom: 20 }}>
-            <h3 style={{ fontWeight: 700, marginBottom: 10 }}>{category}</h3>
-
-            {items.map(item => {
-              const checked = checklistStatus?.[category]?.[item] || false;
-              const isSaving = savingItem === `${category}|${item}`;
-
-
-              return (
-                <label
-                  key={item}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    marginBottom: 8,
-                    fontWeight: 600,
-                    opacity: checked ? 0.6 : 1,
-                  }}
-                >
-
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    disabled={checklistLocked || isSaving}
-                    onChange={() => toggleChecklistItem(category, item, !checked)}
-                  />
-
-                  <span>{item}</span>
-
-                  {isSaving && (
-                    <span className="inline-spinner" />
-                  )}
-                </label>
-              );
-            })}
-          </div>
-        ))}
-      </section>
 
 
 
