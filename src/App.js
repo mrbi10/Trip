@@ -1456,7 +1456,7 @@ function Dashboard({
 
       <hr className="divider" />
 
-      {tripEnded && <PhotoGallery />}
+      {/* {tripEnded && <PhotoGallery />} */}
 
 
       {expenses.length > 0 ? (
