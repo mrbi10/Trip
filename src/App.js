@@ -10,6 +10,7 @@ const TRIP_START_AT = "2026-04-09 12:30";
 const TRIP_END_AT = "2026-04-13 15:00";
 const EXPECTED_MIN_MEMBERS = 40;
 const EXPECTED_MAX_MEMBERS = 45;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const formatTime = (value) => String(Math.max(0, value)).padStart(2, '0');
 
@@ -121,7 +122,7 @@ const fetchSheet = async (sheet) => {
     for (let i = 0; i < 3; i++) {
       response = await fetch(url);
       if (response.ok) break;
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await sleep(delay);
       delay *= 2;
     }
 
