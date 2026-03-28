@@ -1,1531 +1,2073 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import {
+    PieChart,
+    Pie,
+    Cell,
+    Tooltip,
+    ResponsiveContainer,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Legend,
+    LineChart,
+    Line,
+    AreaChart,
+    Area,
+} from "recharts";
 
 const SHEET_ID = process.env.REACT_APP_SHEET_ID;
 const USERS_SHEET = process.env.REACT_APP_USERS_SHEET;
 const PAYMENTS_SHEET = process.env.REACT_APP_PAYMENTS_SHEET;
 const TRIP_SHEET = process.env.REACT_APP_TRIP_SHEET;
 const EXPENSES_SHEET = process.env.REACT_APP_EXPENSES_SHEET;
+const ANNOUNCEMENTS_SHEET = process.env.REACT_APP_ANNOUNCEMENTS_SHEET;
+const TIMELINE_SHEET = process.env.REACT_APP_TIMELINE_SHEET;
+const ROOMS_SHEET = process.env.REACT_APP_ROOMS_SHEET;
+const INFO_SHEET = process.env.REACT_APP_INFO_SHEET;
+const CONFIG_SHEET = process.env.REACT_APP_CONFIG_SHEET;
+
 const TRIP_BRAND = "IV YEAR CSE";
 const TRIP_START_AT = "2026-04-09 12:30";
 const TRIP_END_AT = "2026-04-13 15:00";
 const EXPECTED_MIN_MEMBERS = 40;
-const EXPECTED_MAX_MEMBERS = 45;
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const formatTime = (value) => String(Math.max(0, value)).padStart(2, '0');
-
-function CountdownTimer({ startDate }) {
-  const [timeLeft, setTimeLeft] = useState({});
-  const tripStart = new Date(TRIP_START_AT).getTime();
-  const tripEnd = new Date(TRIP_END_AT).getTime();
-  const isClose = timeLeft.days <= 5 && !timeLeft.isPast;
-
-  useEffect(() => {
-    if (!startDate || isNaN(tripStart)) return;
-
-    const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const distance = tripStart - now;
-
-      if (distance < 0) {
-        if (now < tripEnd) {
-          setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isPast: false, isLive: true });
-          return;
-        }
-        setTimeLeft({ days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true });
-        return;
-      }
-
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-      setTimeLeft({ days, hours, minutes, seconds, isPast: false, isLive: false });
-    };
-
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
-    return () => clearInterval(timer);
-  }, [startDate, tripStart, tripEnd]);
-
-  if (Object.keys(timeLeft).length === 0) {
-    return <div className="countdown-card loading">Calculating countdown...</div>;
-  }
-
-  if (timeLeft.isPast) {
-    return (
-      <div className="countdown-card past" style={{ position: "relative" }}>
-        <div className="countdown-status">The Trip🎉</div>
-        <div className="countdown-message">
-          What a wonderful trip it was. These memories will always stay alive.
-          Thank you, everyone ❤️
-        </div>
-
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            pointerEvents: "none",
-            background:
-              "url('https://media.tenor.com/fu7DE5jHcqsAAAAj/confetti-celebrate.gif') center/cover no-repeat",
-            opacity: 0.3,
-            borderRadius: "12px",
-          }}
-        />
-      </div>
-    );
-  }
-
-  if (timeLeft.isLive) {
-    return (
-      <div className="countdown-card">
-        <div className="countdown-status">Trip In Progress</div>
-        <div className="countdown-message">IV YEAR CSE Kerala trip is live now. Enjoy every moment.</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className={`countdown-card ${isClose ? "countdown-urgent" : ""}`}>
-      <div className="countdown-label">Trip Starts In:</div>
-      <div className="countdown-grid">
-        <div className="time-unit">
-          <span className="time-value">{formatTime(timeLeft.days)}</span>
-          <span className="unit-label">Days</span>
-        </div>
-        <div className="time-unit">
-          <span className="time-value">{formatTime(timeLeft.hours)}</span>
-          <span className="unit-label">Hours</span>
-        </div>
-        <div className="time-unit">
-          <span className="time-value">{formatTime(timeLeft.minutes)}</span>
-          <span className="unit-label">Mins</span>
-        </div>
-        <div className="time-unit">
-          <span className="time-value">{formatTime(timeLeft.seconds)}</span>
-          <span className="unit-label">Secs</span>
-        </div>
-      </div>
-    </div>
-  );
-}
+const WEATHER_LAT = 10.0889;
+const WEATHER_LON = 77.0595;
+const CHART_COLORS = ["#4f46e5", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#ec4899", "#8b5cf6"];
 
 
-const fetchSheet = async (sheet) => {
-  try {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${sheet}`;
-    let response = null;
-    let delay = 1000;
 
-    for (let i = 0; i < 3; i++) {
-      response = await fetch(url);
-      if (response.ok) break;
-      await sleep(delay);
-      delay *= 2;
-    }
 
-    if (!response || !response.ok) {
-      throw new Error(`Failed to fetch sheet ${sheet}`);
-    }
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const fmt = (n) => String(Math.max(0, n)).padStart(2, "0");
+const money = (amt) =>
+    new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+    }).format(Number(amt) || 0);
 
-    const raw = await response.text();
-
-    return JSON.parse(raw.substring(47, raw.length - 2)).table;
-  } catch (err) {
-    console.error("Sheet fetch failed:", sheet, err);
-    return null;
-  }
+const getStatusMeta = (paid, perHead) => {
+    if (paid >= perHead && perHead > 0) return { label: "Paid", color: "#10b981" };
+    if (paid > 0) return { label: "Partial", color: "#f59e0b" };
+    return { label: "Pending", color: "#ef4444" };
 };
 
-function App() {
-  const [loggedInUser, setLoggedInUser] = useState(null);
-  const [users, setUsers] = useState([]);
-  const [payments, setPayments] = useState([]);
-  const [tripInfo, setTripInfo] = useState({});
-  const [expenses, setExpenses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [loginError, setLoginError] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
+const parseBool = (value) => {
+    const v = String(value ?? "").trim().toLowerCase();
+    return v === "true" || v === "yes" || v === "1" || v === "active";
+};
 
-
-  useEffect(() => {
-    const saved = localStorage.getItem("tripUser");
-    if (saved) {
-      setLoggedInUser(JSON.parse(saved));
+const toDate = (value) => {
+    if (!value) return null;
+    if (value instanceof Date && !isNaN(value.getTime())) return value;
+    if (typeof value === "number") {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? null : d;
     }
-  }, []);
+    const raw = String(value).trim();
+    if (!raw) return null;
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const [uSheet, pSheet, tSheet, eSheet] = await Promise.all([
-
-          fetchSheet(USERS_SHEET),
-          fetchSheet(PAYMENTS_SHEET),
-          fetchSheet(TRIP_SHEET),
-          fetchSheet(EXPENSES_SHEET),
-
-        ]);
-        console.log("EXPENSE SHEET ROWS:", eSheet.rows);
-
-        if (!uSheet || !pSheet || !tSheet || !eSheet) {
-          console.error("One or more sheets failed to load");
-          setLoading(false);
-          return;
-        }
-
-        const userList = uSheet.rows.slice(1).map((r) => ({
-          name: r.c[0]?.v,
-          password: r.c[1]?.v,
-          role: r.c[2]?.v,
-        }));
-        setUsers(userList);
-
-        const paymentList = pSheet.rows.map((r) => ({
-          name: r.c[0]?.v,
-          paid: parseFloat(r.c[1]?.v) || 0,
-        }));
-        setPayments(paymentList);
-
-        const tInfo = {};
-        tSheet.rows.forEach((row) => {
-          const key = row.c[0]?.v;
-          const val = row.c[1]?.f || row.c[1]?.v;
-          tInfo[key] = isNaN(val) ? val : parseFloat(val);
-        });
-
-        if (!tInfo.start_date) {
-          tInfo.start_date = '2026-04-09';
-        }
-        if (!tInfo.trip_name) {
-          tInfo.trip_name = TRIP_BRAND;
-        }
-
-        setTripInfo(tInfo);
-
-        const expenseList = eSheet.rows
-          .map((r) => ({
-            category: r.c[0]?.v,
-            cost: parseFloat(r.c[1]?.v) || 0,
-            date: r.c[2]?.f || r.c[2]?.v || "",
-            notes: r.c[3]?.v || "No notes",
-          }))
-          .filter((e) => e.category && !isNaN(e.cost));
-
-
-        setExpenses(
-          expenseList.filter(e =>
-            e.category &&
-            !isNaN(e.cost) &&
-            e.cost > 0
-          )
-        );
-      } catch (err) {
-        console.error("Load error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    load();
-  }, []);
-
-  const login = (name, pass) => {
-    const user = users.find((u) => u.name === name && u.password === pass);
-
-    if (user) {
-      setLoggedInUser(user);
-      localStorage.setItem("tripUser", JSON.stringify(user));
-      setLoginError(false);
-      setShowWelcome(true);
-
-      setTimeout(() => {
-        setShowWelcome(false);
-      }, 1200);
+    const gvizMatch = raw.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/i);
+    if (gvizMatch) {
+        const y = Number(gvizMatch[1]);
+        const m = Number(gvizMatch[2]);
+        const d = Number(gvizMatch[3]);
+        const hh = Number(gvizMatch[4] || 0);
+        const mm = Number(gvizMatch[5] || 0);
+        const ss = Number(gvizMatch[6] || 0);
+        const parsed = new Date(y, m, d, hh, mm, ss);
+        return isNaN(parsed.getTime()) ? null : parsed;
     }
 
-  };
+    const parsed = new Date(raw);
+    return isNaN(parsed.getTime()) ? null : parsed;
+};
 
+const formatShortDate = (value) => {
+    const date = toDate(value);
+    if (!date) return String(value || "-");
+    return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+};
 
-  const logout = () => {
-    setLoggedInUser(null);
-    localStorage.removeItem("tripUser");
-  };
+const formatDateTime = (value) => {
+    const date = toDate(value);
+    if (!date) return String(value || "-");
+    return date.toLocaleString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+};
 
-  const perHead = parseFloat(tripInfo.per_head) || 0;
-  const myPaid =
-    loggedInUser?.name &&
-    (payments.find((p) => p.name === loggedInUser.name)?.paid || 0);
+const isRecentDate = (value, withinDays = 2) => {
+    const date = toDate(value);
+    if (!date) return false;
+    const now = Date.now();
+    const age = now - date.getTime();
+    return age >= 0 && age <= withinDays * 24 * 60 * 60 * 1000;
+};
 
-  const status =
-    myPaid >= perHead ? "Paid" : myPaid > 0 ? "Partial" : "Pending";
+const fetchSheet = async (sheet) => {
+    if (!sheet || !SHEET_ID) return { rows: [] };
+    try {
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheet)}`;
+        let response = null;
+        let delay = 800;
 
-  const memberCount = users.length;
+        for (let i = 0; i < 3; i += 1) {
+            response = await fetch(url);
+            if (response.ok) break;
+            await sleep(delay);
+            delay *= 2;
+        }
 
-  const appStyles = `
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        if (!response?.ok) throw new Error(`Failed: ${sheet}`);
+        const raw = await response.text();
+        const payload = JSON.parse(raw.substring(47, raw.length - 2));
+        return payload.table || { rows: [] };
+    } catch (err) {
+        console.error("Sheet fetch failed:", sheet, err);
+        return { rows: [] };
+    }
+};
+
+const useDebouncedValue = (value, delay = 260) => {
+    const [debounced, setDebounced] = useState(value);
+    useEffect(() => {
+        const t = setTimeout(() => setDebounced(value), delay);
+        return () => clearTimeout(t);
+    }, [value, delay]);
+    return debounced;
+};
+
+const useAnimatedNumber = (target, duration = 700) => {
+    const [num, setNum] = useState(0);
+
+    useEffect(() => {
+        const end = Number(target) || 0;
+        let raf = 0;
+        const start = performance.now();
+
+        const tick = (time) => {
+            const progress = Math.min((time - start) / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            setNum(end * eased);
+            if (progress < 1) raf = requestAnimationFrame(tick);
+        };
+
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [target, duration]);
+
+    return num;
+};
+
+const weatherCodeToIcon = (code) => {
+    if (code === 0) return "☀";
+    if ([1, 2].includes(code)) return "⛅";
+    if (code === 3) return "☁";
+    if ([45, 48].includes(code)) return "🌫";
+    if ([51, 53, 55, 56, 57].includes(code)) return "🌦";
+    if ([61, 63, 65, 66, 67].includes(code)) return "🌧";
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return "🌨";
+    if ([80, 81, 82].includes(code)) return "🌧";
+    if ([95, 96, 99].includes(code)) return "⛈";
+    return "🌤";
+};
+
+const GlobalStyles = () => (
+    <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #f5f9ff;
-      --surface: #ffffff;
-      --surface-soft: #eef4ff;
-      --primary: #2563eb;
-      --primary-dark: #1d4ed8;
-      --primary-soft: #dbeafe;
+      --bg: #eef3ff;
+      --bg-accent: radial-gradient(circle at 15% -10%, #dbeafe 0%, rgba(219,234,254,0) 40%), radial-gradient(circle at 90% 10%, #dcfce7 0%, rgba(220,252,231,0) 35%);
+      --surface: rgba(255,255,255,0.82);
+      --surface-solid: #ffffff;
+      --surface-soft: #f5f9ff;
       --text: #0f172a;
-      --muted: #475569;
-      --border: #cbd5e1;
-      --danger: #dc2626;
-      --warning: #d97706;
-      --success: #059669;
-      --shadow: 0 10px 30px rgba(37, 99, 235, 0.08);
+      --text2: #334155;
+      --text3: #64748b;
+      --primary: #2563eb;
+      --primary-2: #14b8a6;
+      --border: rgba(15, 23, 42, 0.08);
+      --ring: rgba(37, 99, 235, 0.24);
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --radius: 18px;
+      --radius-sm: 12px;
+      --font: 'Manrope', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+      --shadow: 0 8px 32px rgba(2,6,23,0.08), 0 2px 8px rgba(2,6,23,0.04);
+      --shadow-hover: 0 14px 40px rgba(2,6,23,0.12), 0 3px 10px rgba(2,6,23,0.06);
     }
 
-    .page-container {
-      font-family: 'Plus Jakarta Sans', sans-serif;
-      background: radial-gradient(circle at top right, #e0ecff 0%, #f7faff 50%, #eef4ff 100%);
+    [data-theme="dark"] {
+      --bg: #060b16;
+      --bg-accent: radial-gradient(circle at 15% -10%, rgba(59,130,246,0.2) 0%, rgba(59,130,246,0) 35%), radial-gradient(circle at 85% 0%, rgba(20,184,166,0.18) 0%, rgba(20,184,166,0) 35%);
+      --surface: rgba(15, 23, 42, 0.72);
+      --surface-solid: #0f172a;
+      --surface-soft: #15233b;
+      --text: #f1f5f9;
+      --text2: #d2deef;
+      --text3: #93a4bf;
+      --primary: #60a5fa;
+      --primary-2: #2dd4bf;
+      --border: rgba(148, 163, 184, 0.2);
+      --ring: rgba(96, 165, 250, 0.28);
+      --green: #34d399;
+      --amber: #fbbf24;
+      --red: #f87171;
+      --shadow: 0 12px 36px rgba(0,0,0,0.32), 0 2px 10px rgba(0,0,0,0.2);
+      --shadow-hover: 0 18px 48px rgba(0,0,0,0.38), 0 3px 12px rgba(0,0,0,0.24);
+    }
+
+    body {
+      font-family: var(--font);
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+
+    .app-shell {
       min-height: 100vh;
+      background: var(--bg-accent), var(--bg);
       color: var(--text);
     }
 
-    .dashboard-layout {
-      max-width: 1240px;
-      margin: 0 auto;
-      padding: 20px;
+    .top-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 120;
+      backdrop-filter: blur(14px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.8), rgba(255,255,255,0.6));
+      border-bottom: 1px solid var(--border);
+    }
+    [data-theme="dark"] .top-wrap {
+      background: linear-gradient(180deg, rgba(5,10,18,0.88), rgba(5,10,18,0.72));
     }
 
-    .center-screen {
+    .announce-bar {
+      height: 38px;
       display: flex;
-      flex-direction: column;
-      justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      text-align: center;
-    }
-
-    .section-title {
-      font-size: 1.55rem;
-      font-weight: 800;
-      color: var(--text);
-      margin-bottom: 18px;
-      border-left: 6px solid var(--primary);
-      padding-left: 10px;
-      line-height: 1.2;
-    }
-
-    .divider {
-      border: 0;
-      height: 1px;
-      background-color: var(--border);
-      margin: 34px 0;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-
-    @keyframes fadeOut {
-      0% { opacity: 1; }
-      100% { opacity: 0; visibility: hidden; }
-    }
-
-    @keyframes pulseGlow {
-      0% { box-shadow: 0 0 0 rgba(220, 38, 38, 0.2); }
-      100% { box-shadow: 0 0 18px rgba(220, 38, 38, 0.5); }
-    }
-
-    .main-header {
-      display: flex;
       justify-content: space-between;
+      padding: 0 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8rem;
+      color: var(--text2);
+      gap: 10px;
+    }
+    .announce-pill {
+      display: inline-flex;
       align-items: center;
-      padding: 12px 0;
-      margin-bottom: 26px;
-      border-bottom: 3px solid var(--primary);
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-
-    .header-title {
-      font-size: 1.75rem;
-      font-weight: 800;
-      color: var(--text);
-      letter-spacing: 0.01em;
-    }
-
-    .trip-name {
+      gap: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(37,99,235,0.12);
       color: var(--primary);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .announce-msg {
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      font-weight: 600;
+    }
+    .announce-date {
+      color: var(--text3);
+      font-size: 0.72rem;
+      font-family: var(--mono);
     }
 
-    .user-profile {
+    .top-bar {
+      height: 64px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
       gap: 12px;
-      flex-wrap: wrap;
     }
+    .top-bar-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      font-weight: 800;
+    }
+    .brand-dot {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color: white;
+      box-shadow: 0 8px 20px rgba(37,99,235,0.3);
+      flex-shrink: 0;
+    }
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text2);
+      cursor: pointer;
+      transition: all 0.22s ease;
+      display: grid;
+      place-items: center;
+    }
+    .icon-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 
-    .welcome-text {
-      font-weight: 600;
-      color: var(--muted);
-      font-size: 0.95rem;
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 999px;
+      padding: 4px 10px 4px 4px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      max-width: 220px;
+    }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .user-name {
+      font-size: 0.82rem;
+      font-weight: 700;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      overflow: hidden;
     }
 
     .logout-btn {
-      background-color: #0f172a;
-      color: white;
-      border: none;
-      padding: 9px 14px;
-      border-radius: 9px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: background-color 0.2s ease;
-      box-shadow: 0 4px 8px rgba(15, 23, 42, 0.2);
-    }
-
-    .logout-btn:hover {
-      background-color: #1e293b;
-    }
-
-    .grid-cards-3 {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 18px;
-    }
-
-    .stat-card, .countdown-card {
-      background: var(--surface);
-      border-radius: 14px;
-      padding: 22px;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 130px;
-      border: 1px solid #e2e8f0;
-      transition: transform 0.2s ease;
-    }
-
-    .stat-card:hover {
-      transform: translateY(-3px);
-    }
-
-    .stat-card.primary-card {
-      border-bottom: 5px solid var(--primary);
-    }
-
-    .stat-card.secondary-card {
-      border-bottom: 5px solid #0ea5e9;
-    }
-
-    .stat-label {
-      font-size: 0.95rem;
-      color: #334155;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text2);
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-size: 0.76rem;
       font-weight: 700;
-      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .logout-btn:hover { border-color: var(--red); color: var(--red); background: rgba(239,68,68,0.08); }
+
+    .last-updated {
+      font-size: 0.72rem;
+      color: var(--text3);
+      font-family: var(--mono);
+      white-space: nowrap;
     }
 
-    .stat-number {
-      font-size: 2.3rem;
-      font-weight: 800;
-      color: #0f172a;
+    .page-content {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 26px 20px 78px;
+      display: grid;
+      gap: 20px;
+      width: 100%;
     }
+
+    .card {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      transition: all 0.24s ease;
+      overflow: hidden;
+    }
+    .card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+    .card-p { padding: 20px; }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 14px;
+      width: 100%;
+    }
+    .hero-grid > * {
+      min-height: 120px;
+      overflow: hidden;
+    }
+    .span-3 { grid-column: span 3; }
+    .span-4 { grid-column: span 4; }
+    .span-5 { grid-column: span 5; }
+    .span-6 { grid-column: span 6; }
+    .span-7 { grid-column: span 7; }
+    .span-8 { grid-column: span 8; }
+    .span-12 { grid-column: span 12; }
 
     .stat-card {
+      padding: 20px;
       position: relative;
       overflow: hidden;
     }
-
-    .card-icon {
+    .stat-card::after {
+      content: "";
       position: absolute;
-      top: 16px;
-      right: 16px;
-      font-size: 2.5rem;
-      opacity: 0.1;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(37,99,235,0.12), transparent 50%);
+      opacity: 0;
+      transition: opacity 0.28s ease;
+      pointer-events: none;
     }
-
-    .countdown-card {
-      border-bottom: 5px solid var(--primary);
-      background-color: #eff6ff;
-    }
-
-    .countdown-card.past {
-      background-color: #fee2e2;
-      border-bottom: 5px solid var(--danger);
-      color: var(--danger);
-      text-align: center;
-    }
-
-    .countdown-urgent {
-      animation: pulseGlow 1.5s infinite alternate ease-in-out;
-      border-bottom: 5px solid var(--danger) !important;
-    }
-
-    .countdown-status {
-      font-size: 1.5rem;
-      font-weight: 800;
-      margin-bottom: 8px;
-    }
-
-    .countdown-message {
-      font-size: 0.95rem;
-      font-weight: 500;
-    }
-
-    .countdown-label {
-      font-size: 0.95rem;
-      color: var(--primary-dark);
+    .stat-card:hover::after { opacity: 1; }
+    .stat-label {
+      font-size: 0.74rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
       font-weight: 700;
+      color: var(--text3);
       margin-bottom: 10px;
     }
-
-    .countdown-grid {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--text);
+      font-family: var(--mono);
     }
-
-    .time-unit {
-      flex: 1;
-      text-align: center;
-      padding: 10px 0;
+    .stat-sub { margin-top: 8px; font-size: 0.8rem; color: var(--text3); }
+    .accent-dot {
+      width: 34px;
+      height: 34px;
       border-radius: 10px;
-      background-color: #dbeafe;
-      border: 1px solid #bfdbfe;
-    }
-
-    .time-value {
-      display: block;
-      font-size: 1.7rem;
-      font-weight: 800;
-      color: #1e3a8a;
-      line-height: 1;
-    }
-
-    .unit-label {
-      display: block;
-      font-size: 0.72rem;
-      color: #1e3a8a;
-      font-weight: 700;
-      text-transform: uppercase;
-      margin-top: 3px;
-    }
-
-    .my-payment-card {
-      background-color: var(--surface);
-      border-radius: 14px;
-      padding: 28px;
-      box-shadow: var(--shadow);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      text-align: center;
-      border-top: 5px solid;
-      border-left: 1px solid #e2e8f0;
-      border-right: 1px solid #e2e8f0;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .my-payment-card.status-paid {
-      border-color: var(--success);
-      background-color: #ecfdf5;
-    }
-
-    .my-payment-card.status-partial {
-      border-color: var(--warning);
-      background-color: #fffbeb;
-    }
-
-    .my-payment-card.status-pending {
-      border-color: var(--danger);
-      background-color: #fef2f2;
-    }
-
-    .payment-amount {
-      font-size: 2.7rem;
-      font-weight: 800;
-      color: #0f172a;
-      line-height: 1;
-    }
-
-    .payment-amount-label {
-      font-size: 0.95rem;
-      color: var(--muted);
-      font-weight: 600;
-      margin: 10px 0 15px;
-    }
-
-    .payment-status {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .due-info {
-      font-size: 0.9rem;
-      font-weight: 700;
-      color: var(--danger);
-      margin-left: 10px;
-    }
-
-    .member-list {
-      background: var(--surface);
-      border: 1px solid #dbe4f0;
-      border-radius: 14px;
-      padding: 18px;
-      box-shadow: var(--shadow);
-    }
-
-    .member-tools {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    .roster-hint {
-      color: #334155;
-      font-size: 0.9rem;
-      font-weight: 600;
-      background: var(--primary-soft);
-      border: 1px solid #bfdbfe;
-      padding: 8px 10px;
-      border-radius: 8px;
-    }
-
-    .member-search {
-      width: 280px;
-      max-width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 0.92rem;
-      background: white;
-    }
-
-    .member-search:focus {
-      outline: 2px solid #bfdbfe;
-      border-color: #93c5fd;
-    }
-
-    .members-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-      gap: 12px;
-      margin-top: 10px;
-      max-height: 520px;
-      overflow-y: auto;
-      padding-right: 4px;
+      place-items: center;
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      background: var(--surface-soft);
+      border: 1px solid var(--border);
+      font-size: 16px;
     }
 
-    .member-card {
+    .section-header {
       display: flex;
+      align-items: center;
       justify-content: space-between;
-      align-items: center;
-      padding: 13px;
-      background-color: white;
-      border-radius: 10px;
-      border: 1px solid #dbe4f0;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .sticky-header {
+      position: sticky;
+      top: 106px;
+      z-index: 60;
+      padding: 7px 0;
+      background: linear-gradient(180deg, rgba(238,243,255,0.94), rgba(238,243,255,0.7));
+      backdrop-filter: blur(8px);
+    }
+    [data-theme="dark"] .sticky-header {
+      background: linear-gradient(180deg, rgba(6,11,22,0.94), rgba(6,11,22,0.72));
+    }
+    .section-title {
+      font-size: 1.02rem;
+      font-weight: 800;
+      color: var(--text);
     }
 
-    .member-card.current-user-highlight {
-      border: 2px solid var(--primary);
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+    .timeline-list {
+      display: grid;
+      gap: 12px;
+      position: relative;
+      padding-left: 18px;
     }
-
-    .member-name {
-      font-weight: 700;
-      color: #0f172a;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      max-width: 52%;
-      word-break: break-word;
+    .timeline-list::before {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 6px;
+      bottom: 6px;
+      width: 2px;
+      background: linear-gradient(var(--primary), rgba(37,99,235,0.2));
     }
-
-    .you-tag {
-      background-color: var(--primary);
-      color: white;
-      font-size: 0.68rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-weight: 700;
+    .timeline-item {
+      position: relative;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      border-radius: 14px;
+      padding: 12px 12px 12px 14px;
+      margin-left: 8px;
     }
-
-    .member-payment-status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .status-dot {
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -20px;
+      top: 16px;
       width: 10px;
       height: 10px;
       border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 0 4px rgba(37,99,235,0.2);
     }
-
-    .member-payment-status.status-paid .status-dot { background-color: var(--success); }
-    .member-payment-status.status-partial .status-dot { background-color: var(--warning); }
-    .member-payment-status.status-pending .status-dot { background-color: var(--danger); }
-
-    .paid-amount-value {
-      color: #334155;
-      font-size: 0.95rem;
-      font-weight: 700;
+    .timeline-item.current {
+      border: 2px solid var(--primary);
+      box-shadow: 0 0 0 2px var(--ring);
     }
-
-    .load-more-btn {
-      margin-top: 12px;
-      border: 1px solid #93c5fd;
-      background: var(--surface-soft);
-      color: var(--primary-dark);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .login-wrapper {
-      min-height: 100vh;
+    .timeline-head {
       display: flex;
-      justify-content: center;
       align-items: center;
-      background: radial-gradient(circle at 50% 0%, #dbeafe 0%, #eff6ff 50%, #e8f0ff 100%);
-      padding: 20px;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 6px;
     }
-
-    .login-card {
-      background: white;
-      padding: 34px;
-      border-radius: 16px;
-      box-shadow: 0 16px 40px rgba(37, 99, 235, 0.16);
-      text-align: center;
-      width: 100%;
-      max-width: 400px;
-      border: 1px solid #dbeafe;
+    .timeline-day {
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--primary);
+      letter-spacing: 0.08em;
     }
+    .timeline-date { font-size: 0.76rem; color: var(--text3); font-family: var(--mono); }
+    .timeline-title { font-size: 0.92rem; font-weight: 800; color: var(--text); }
+    .timeline-desc { margin-top: 3px; font-size: 0.83rem; color: var(--text2); }
 
-    .logo-placeholder {
-      font-size: 2.6rem;
+    .chart-card { padding: 18px; }
+    .chart-title {
+      font-size: 0.82rem;
+      font-weight: 800;
+      color: var(--text2);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
       margin-bottom: 10px;
     }
 
-    .login-card h2 {
-      font-size: 1.65rem;
-      color: #1e3a8a;
-      margin-bottom: 25px;
-      font-weight: 800;
+    .insight-stack { display: grid; gap: 10px; }
+    .insight-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-soft);
+      padding: 10px 12px;
+      font-size: 0.84rem;
+      color: var(--text2);
     }
+    .insight-pill strong { color: var(--text); }
 
-    .auth-input {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 14px;
-      border: 1px solid #bfdbfe;
-      border-radius: 9px;
-      font-size: 1rem;
-      box-sizing: border-box;
-      transition: border-color 0.2s;
-    }
-
-    .auth-input:focus {
-      border-color: #60a5fa;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.24);
-    }
-
-    .select-input {
-      appearance: none;
-      background-image: url("data:image/svg+xml;utf8,<svg fill='%231e40af' height='24' viewBox='0 0 24 24' width='24' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      background-size: 18px;
-      cursor: pointer;
-      background-color: white;
-    }
-
-    .login-btn {
-      width: 100%;
-      background-color: var(--primary);
-      color: white;
-      border: none;
-      padding: 12px;
-      border-radius: 9px;
-      font-size: 1.02rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: background-color 0.2s ease, transform 0.1s ease;
-      box-shadow: 0 6px 15px rgba(37, 99, 235, 0.28);
-    }
-
-    .login-btn:hover {
-      background-color: var(--primary-dark);
-      transform: translateY(-1px);
-    }
-
-    .login-error-message {
-      color: var(--danger);
-      font-size: 0.9rem;
-      margin-top: -4px;
-      margin-bottom: 12px;
-      font-weight: 600;
-    }
-
-    .expense-split-section {
-      margin-top: 40px;
-      padding: 20px;
-      background-color: var(--surface);
-      border-radius: 14px;
-      box-shadow: var(--shadow);
-      border: 1px solid #dbe4f0;
-    }
-
-    .expense-container {
-      overflow-x: auto;
-      border: 1px solid #dbe4f0;
-      border-radius: 10px;
-    }
-
-    .expense-table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 680px;
-    }
-
-    .expense-table th {
-      background-color: #eff6ff;
-      color: #1e3a8a;
-      font-weight: 800;
-      text-align: left;
-      padding: 12px 14px;
-      border-bottom: 2px solid #dbe4f0;
-      text-transform: uppercase;
-      font-size: 0.78rem;
-      white-space: nowrap;
-    }
-
-    .expense-table td {
-      padding: 12px 14px;
-      border-bottom: 1px solid #eef2f7;
-      color: #334155;
-      font-size: 0.93rem;
-      vertical-align: top;
-    }
-
-    .expense-table tbody tr:last-child td {
-      border-bottom: none;
-    }
-
-    .expense-table tbody tr:hover {
-      background-color: #f8fbff;
-    }
-
-    .right-align {
-      text-align: right;
-      font-weight: 700;
-    }
-
-    .text-wrap {
-      white-space: normal;
-      word-break: break-word;
-    }
-
-    .expense-category {
-      font-weight: 700;
-      color: #0f172a;
-    }
-
-    .expense-date {
-      color: #64748b;
-      white-space: nowrap;
-    }
-
-    .expense-summary-grid {
+    .leaderboard-row {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 14px;
-      margin-top: 18px;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding: 9px 0;
+      font-size: 0.84rem;
     }
+    .leaderboard-row:last-child { border-bottom: none; }
+    .rank-num { color: var(--text3); font-family: var(--mono); font-size: 0.76rem; width: 20px; }
+    .amt { font-family: var(--mono); font-weight: 700; color: var(--green); }
 
-    .summary-card {
-      min-width: 0;
+    .reminder-card {
       padding: 18px;
-      border-radius: 12px;
-      border: 1px solid #bfdbfe;
-      background-color: var(--surface-soft);
+      border-radius: var(--radius);
+      color: white;
+      background: linear-gradient(135deg, #2563eb, #0ea5e9);
+      box-shadow: 0 14px 28px rgba(37,99,235,0.36);
+      display: grid;
+      gap: 10px;
     }
-
-    .summary-value.positive {
-      color: var(--success);
-      font-weight: 800;
+    .reminder-card.pending {
+      background: linear-gradient(135deg, #f59e0b, #f97316);
+      box-shadow: 0 14px 28px rgba(245,158,11,0.34);
     }
+    .rem-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.09em; opacity: 0.85; font-weight: 800; }
+    .rem-value { font-size: 1.28rem; font-weight: 800; }
 
-    .summary-value.negative {
-      color: var(--danger);
-      font-weight: 800;
-    }
-
-    .summary-label {
-      font-size: 0.88rem;
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      border-radius: 999px;
+      font-size: 0.74rem;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--text2);
       font-weight: 700;
-      color: #334155;
-      margin-bottom: 6px;
     }
 
-    .summary-value {
-      font-size: 1.8rem;
+    .weather-card {
+      padding: 18px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 16px;
+      align-items: center;
+    }
+    .weather-main {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.9rem;
       font-weight: 800;
-      color: #0f172a;
+      font-family: var(--mono);
     }
-
-    .expense-warning {
-      background-color: #fff7ed;
-      color: #9a3412;
-      padding: 14px;
-      border-radius: 10px;
-      margin-top: 18px;
+    .weather-icon { font-size: 2.2rem; }
+    .weather-meta { color: var(--text3); font-size: 0.8rem; }
+    .trip-days-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .trip-day {
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 8px;
+      background: var(--surface-soft);
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text2);
       font-weight: 700;
-      border-left: 5px solid #f97316;
     }
 
-    .progress-wrapper {
-      margin-top: 10px;
-      background: var(--surface);
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: var(--shadow);
-      border: 1px solid #dbe4f0;
-    }
-
+    .progress-wrap { margin-top: 12px; }
     .progress-labels {
       display: flex;
       justify-content: space-between;
-      color: #334155;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text3);
+      margin-bottom: 6px;
       font-weight: 700;
-      margin-bottom: 10px;
-      gap: 10px;
-      flex-wrap: wrap;
     }
-
-    .progress-bar {
-      width: 100%;
-      height: 12px;
-      background-color: #dbe4f0;
-      border-radius: 10px;
+    .progress-track {
+      height: 11px;
+      border-radius: 999px;
+      background: var(--surface-soft);
       overflow: hidden;
+      border: 1px solid var(--border);
     }
-
     .progress-fill {
       height: 100%;
-      background: linear-gradient(90deg, #2563eb 0%, #0ea5e9 100%);
-      transition: width 0.6s ease-in-out;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--primary), var(--primary-2));
+      transition: width 1.1s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .member-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+      align-items: center;
+      width: 100%;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 140px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--text);
+      font-family: var(--font);
+      padding: 10px 12px;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      font-size: 0.86rem;
+      box-sizing: border-box;
+    }
+    .search-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+    .filter-btn {
       border-radius: 10px;
-    }
-
-    .scroll-top-btn {
-      position: fixed;
-      bottom: 22px;
-      right: 22px;
-      background: var(--primary);
-      color: white;
-      border: none;
-      width: 45px;
-      height: 45px;
-      border-radius: 50%;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+      border: 1px solid var(--border);
+      background: var(--surface-soft);
+      color: var(--text2);
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      font-weight: 700;
       cursor: pointer;
-      transition: transform 0.2s ease, background-color 0.2s ease;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 10px;
+    }
+    .member-card {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-soft);
+      padding: 11px;
+    }
+    .member-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 0.86rem; font-weight: 700; }
+
+    .room-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .room-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface-soft);
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+    .room-no { font-size: 1.05rem; font-weight: 800; color: var(--primary); }
+    .room-meta { font-size: 0.81rem; color: var(--text2); }
+    .room-meta strong { color: var(--text); }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .info-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-soft);
+      padding: 12px;
+      display: grid;
+      gap: 6px;
+    }
+    .info-k { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); font-weight: 800; }
+    .info-v { font-size: 0.86rem; color: var(--text); font-weight: 700; word-break: break-word; }
+
+    .empty-state { padding: 28px; text-align: center; color: var(--text3); font-size: 0.86rem; }
+
+    .skeleton {
+      border-radius: 10px;
+      background: linear-gradient(90deg, var(--surface-soft) 25%, rgba(148,163,184,0.22) 50%, var(--surface-soft) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .scroll-top {
+      position: fixed;
+      right: 20px;
+      bottom: 22px;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color: white;
+      box-shadow: 0 12px 26px rgba(37,99,235,0.35);
+      z-index: 90;
+      transition: transform 0.2s ease;
+    }
+    .scroll-top:hover { transform: translateY(-2px); }
+
+    .welcome-splash {
+      position: fixed;
+      inset: 0;
       z-index: 999;
+      background: var(--surface-solid);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      animation: splashOut 0.5s ease 1.4s forwards;
+    }
+    .welcome-logo {
+      width: 84px;
+      height: 84px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 36px;
+      margin-bottom: 12px;
+      animation: pop 0.5s cubic-bezier(0.16,1,0.3,1);
+    }
+    .welcome-name { font-size: 1.25rem; font-weight: 800; }
+    .welcome-sub { font-size: 0.86rem; color: var(--text3); margin-top: 5px; }
+    @keyframes splashOut { to { opacity: 0; pointer-events: none; } }
+    @keyframes pop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+    .confetti-wrap {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 998;
+      overflow: hidden;
+    }
+    .confetti-piece {
+      position: absolute;
+      top: -20px;
+      width: 10px;
+      height: 14px;
+      border-radius: 2px;
+      animation: fall 2200ms linear forwards;
+    }
+    @keyframes fall {
+      to { transform: translateY(105vh) rotate(560deg); opacity: 0.05; }
     }
 
-    .scroll-top-btn:hover {
-      transform: scale(1.08);
-      background: var(--primary-dark);
+    .chart-card { padding: 18px; min-height: 260px; width: 100%; }
+
+    .collapsible-card {
+      transition: all 0.24s ease;
+    }
+    .collapsible-header {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      margin-bottom: 0;
+      cursor: pointer;
+      user-select: none;
+      padding: 4px 0;
+      transition: all 0.24s ease;
+    }
+    .collapsible-header:hover {
+      transform: translateX(4px);
+    }
+    .collapsible-header .section-title {
+      margin-bottom: 0;
+      transition: all 0.24s ease;
+      padding-bottom: 2px;
+      border-bottom: 2px solid transparent;
+    }
+    .collapsible-header.open .section-title {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+    .collapsible-header.closed .section-title {
+      color: var(--text2);
+      opacity: 0.6;
+    }
+    .collapsible-header:hover .section-title {
+      color: var(--primary);
+    }
+    .collapsible-content {
+      max-height: 9999px;
+      overflow: hidden;
+      transition: max-height 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease;
+      opacity: 1;
+    }
+    .collapsible-content.closed {
+      max-height: 0;
+      opacity: 0;
+      pointer-events: none;
     }
 
-    @media (max-width: 900px) {
-      .dashboard-layout {
-        padding: 12px;
-      }
+    @media (max-width: 1120px) {
+      .span-3 { grid-column: span 6; }
+      .span-4 { grid-column: span 6; }
+      .span-5 { grid-column: span 6; }
+      .span-7 { grid-column: span 6; }
+      .span-8 { grid-column: span 6; }
+      .sticky-header { top: 80px; }
+    }
 
-      .main-header {
-        text-align: center;
-        justify-content: center;
-      }
-
-      .header-title {
-        font-size: 1.45rem;
-      }
-
-      .grid-cards-3 {
-        grid-template-columns: 1fr;
-      }
-
-      .countdown-grid {
-        flex-wrap: wrap;
-      }
-
-      .time-unit {
-        flex-basis: calc(50% - 6px);
-      }
-
-      .members-grid {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 860px) {
+      .announce-date, .last-updated { display: none; }
+      .top-bar { height: auto; min-height: 60px; padding-top: 8px; padding-bottom: 8px; flex-wrap: wrap; }
+      .top-bar-right { flex-wrap: wrap; justify-content: flex-end; }
+      .hero-grid > * { min-height: 100px; }
+      .span-3, .span-4, .span-5, .span-6, .span-7, .span-8, .span-12 { grid-column: span 12 !important; }
+      .hero-grid { grid-template-columns: 1fr; gap: 12px; }
+      .weather-card { grid-template-columns: 1fr; }
+      .sticky-header { top: 80px; }
+      .chart-card { min-height: 220px !important; }
     }
 
     @media (max-width: 600px) {
-      .stat-number {
-        font-size: 1.95rem;
-      }
-
-      .payment-amount {
-        font-size: 2.1rem;
-      }
-
-      .member-tools {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .member-search {
-        width: 100%;
-      }
+      .announce-bar { padding-left: 12px; padding-right: 12px; height: 36px; font-size: 0.75rem; }
+      .top-bar { padding-left: 12px; padding-right: 12px; height: auto; padding-top: 6px; padding-bottom: 6px; }
+      .top-bar-brand { gap: 6px; }
+      .top-bar-brand span { font-size: 0.85rem; }
+      .user-chip { max-width: 130px; font-size: 0.75rem; }
+      .logout-btn { padding: 6px 8px; font-size: 0.7rem; }
+      .icon-btn { width: 32px; height: 32px; font-size: 14px; }
+      .page-content { padding: 14px 10px 60px; gap: 12px; }
+      .card, .card-p { border-radius: 12px; }
+      .card-p, .chart-card, .stat-card { padding: 12px; }
+      .stat-value { font-size: 1.4rem; }
+      .stat-label { font-size: 0.7rem; }
+      .section-title { font-size: 0.95rem; }
+      .members-grid, .room-grid, .info-grid { grid-template-columns: 1fr; gap: 8px; }
+      .leaderboard-row { gap: 8px; padding: 7px 0; font-size: 0.78rem; }
+      .timeline-item { padding: 10px 10px 10px 12px; margin-left: 6px; }
+      .chart-title { font-size: 0.75rem; margin-bottom: 8px; }
+      .hero-grid { gap: 10px; }
+      .collapsible-header { padding: 3px 0; }
     }
-  `;
 
-  return (
-    <React.Fragment>
-      <style dangerouslySetInnerHTML={{ __html: appStyles }} />
+    @media (max-width: 410px) {
+      .top-bar-brand span { display: none; }
+      .top-bar-brand { gap: 0; }
+      .brand-dot { width: 30px; height: 30px; font-size: 14px; }
+      .user-chip { max-width: 90px; font-size: 0.7rem; padding: 2px 6px; }
+      .announce-pill { padding: 2px 6px; font-size: 0.65rem; }
+      .announce-msg { font-size: 0.68rem; }
+      .card-p { padding: 10px; }
+      .stat-card { padding: 12px; }
+      .accent-dot { width: 28px; height: 28px; right: 10px; top: 10px; font-size: 14px; }
+      .hero-grid > * { min-height: 90px; }
+      .members-grid { gap: 6px; }
+      .member-card { padding: 8px; gap: 6px; }
+      .member-name { font-size: 0.78rem; }
+      .chart-card { min-height: 180px !important; }
+      .page-content { padding: 10px 6px 50px; gap: 8px; }
+      .collapsible-header { padding: 2px 0; }
+    }
+  `}</style>
+);
 
-      {showWelcome && loggedInUser && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "white",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            flexDirection: "column",
-            zIndex: 9999,
-            animation: "fadeOut 4s ease forwards",
-          }}
-        >
-          <img
-            src="https://media.tenor.com/09xG7FpC18sAAAAj/compass-wander.gif"
-            alt="welcome-gif"
-            style={{ width: "120px", marginBottom: "20px" }}
-          />
+const CollapsibleSection = memo(({ id, title, children, defaultOpen = true }) => {
+    const [isOpen, setIsOpen] = useState(() => {
+        const saved = localStorage.getItem(`section_${id}`);
+        return saved !== null ? saved === "true" : defaultOpen;
+    });
 
-          <h1 style={{ fontWeight: "800", color: "#1e3a8a" }}>
-            Welcome back, {loggedInUser.name}
-          </h1>
+    const handleToggle = () => {
+        const newState = !isOpen;
+        setIsOpen(newState);
+        localStorage.setItem(`section_${id}`, String(newState));
+    };
+
+    return (
+        <div className="card card-p collapsible-card">
+            <div className={`collapsible-header section-header ${isOpen ? "open" : "closed"}`} onClick={handleToggle}>
+                <div className="section-title">{title}</div>
+            </div>
+            <div className={`collapsible-content ${isOpen ? "open" : "closed"}`}>
+                {children}
+            </div>
         </div>
-      )}
+    );
+});
 
-      <div className="page-container">
-        {loading && (
-          <div className="center-screen">
-            <div
-              style={{
-                width: "80px",
-                height: "80px",
-                borderRadius: "50%",
-                border: "5px solid #bfdbfe",
-                borderTop: "5px solid #2563eb",
-                animation: "spin 1s linear infinite",
-                marginBottom: "20px",
-              }}
-            />
-            <h2 style={{ fontWeight: 700, color: "#1e3a8a" }}>Loading your trip...</h2>
-            <p style={{ color: "#334155", fontSize: "0.9rem", marginTop: "6px" }}>
-              Please wait a moment
-            </p>
-          </div>
+const StatCard = memo(({ label, value, sub, icon, className }) => (
+    <div className={`card stat-card ${className || ''}`}>
+        <div className="stat-label">{label}</div>
+        <div className="stat-value">{value}</div>
+        {sub && <div className="stat-sub">{sub}</div>}
+        {icon && <div className="accent-dot">{icon}</div>}
+    </div>
+));
+
+const AnimatedStatCard = memo(({ label, value, formatter, sub, icon, className }) => {
+    const animated = useAnimatedNumber(value);
+    return (
+        <StatCard
+            label={label}
+            value={formatter(animated)}
+            sub={sub}
+            icon={icon}
+            className={className}
+        />
+    );
+});
+
+const ProgressBar = memo(({ pct }) => (
+    <div className="progress-wrap">
+        <div className="progress-labels">
+            <span>Completion</span>
+            <span>{pct.toFixed(1)}%</span>
+        </div>
+        <div className="progress-track">
+            <div className="progress-fill" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+        </div>
+    </div>
+));
+
+const CountdownCompact = memo(({ className }) => {
+    const [tl, setTl] = useState({});
+    const start = new Date(TRIP_START_AT).getTime();
+    const end = new Date(TRIP_END_AT).getTime();
+
+    useEffect(() => {
+        const run = () => {
+            const now = Date.now();
+            const dist = start - now;
+            if (dist < 0) {
+                setTl(now < end ? { live: true } : { ended: true });
+                return;
+            }
+            setTl({
+                days: Math.floor(dist / 86400000),
+                hours: Math.floor((dist % 86400000) / 3600000),
+                minutes: Math.floor((dist % 3600000) / 60000),
+            });
+        };
+        run();
+        const t = setInterval(run, 1000);
+        return () => clearInterval(t);
+    }, [start, end]);
+
+    if (tl.live) {
+        return (
+            <div className={`reminder-card ${className || ''}`}>
+                <div className="rem-label">Trip Status</div>
+                <div className="rem-value">Live Now</div>
+                <div style={{ opacity: 0.85, fontSize: "0.82rem" }}>Kerala trip is currently happening</div>
+            </div>
+        );
+    }
+
+    if (tl.ended) {
+        return (
+            <div className={`reminder-card pending ${className || ''}`}>
+                <div className="rem-label">Trip Status</div>
+                <div className="rem-value">Trip Completed</div>
+                <div style={{ opacity: 0.85, fontSize: "0.82rem" }}>Memories packed. Until next trip.</div>
+            </div>
+        );
+    }
+
+    return (
+        <div className={`reminder-card ${className || ''}`}>
+            <div className="rem-label">Trip Starts In</div>
+            <div className="rem-value">{fmt(tl.days || 0)}d {fmt(tl.hours || 0)}h {fmt(tl.minutes || 0)}m</div>
+            <div style={{ opacity: 0.85, fontSize: "0.82rem" }}>Get your essentials ready</div>
+        </div>
+    );
+});
+
+const AnnouncementBar = memo(({ announcements }) => {
+    const [index, setIndex] = useState(0);
+    useEffect(() => {
+        if (announcements.length < 2) return undefined;
+        const t = setInterval(() => setIndex((i) => (i + 1) % announcements.length), 4500);
+        return () => clearInterval(t);
+    }, [announcements]);
+
+    const current = announcements[index] || null;
+
+    return (
+        <div className="announce-bar">
+            <span className="announce-pill">Announcements</span>
+            {current ? (
+                <>
+                    <div className="announce-msg">
+                        {isRecentDate(current.date, 2) ? "NEW • " : ""}
+                        {current.message}
+                    </div>
+                    <span className="announce-date">{formatDateTime(current.date)}</span>
+                </>
+            ) : (
+                <div className="announce-msg">No active announcements</div>
+            )}
+        </div>
+    );
+});
+
+const TimelineSection = memo(({ timeline }) => {
+    const today = new Date();
+    const todayLabel = today.toDateString();
+
+    return (
+        <div className="card card-p">
+            <div className="section-header">
+                <div className="section-title">Trip Timeline</div>
+            </div>
+            {timeline.length === 0 ? (
+                <div className="empty-state">Add rows in TIMELINE sheet to show day-wise itinerary.</div>
+            ) : (
+                <div className="timeline-list">
+                    {timeline.map((item, idx) => {
+                        const d = toDate(item.date);
+                        const isCurrent = d ? d.toDateString() === todayLabel : idx === 0;
+                        return (
+                            <div key={`${item.day}-${item.title}-${idx}`} className={`timeline-item ${isCurrent ? "current" : ""}`}>
+                                <div className="timeline-head">
+                                    <span className="timeline-day">{item.day || `Day ${idx + 1}`}</span>
+                                    <span className="timeline-date">{formatShortDate(item.date)}</span>
+                                </div>
+                                <div className="timeline-title">{item.title || "Activity"}</div>
+                                <div className="timeline-desc">{item.description || "Details will be updated soon."}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+});
+
+const PaymentAnalytics = memo(({ statusData, trendData, totalPaid, totalPending }) => (
+    <div>
+        <div className="section-header" style={{ marginBottom: 14 }}>
+            <div style={{ flex: 1 }} />
+            <div className="chip-row">
+                <span className="chip">Paid: {money(totalPaid)}</span>
+                <span className="chip">Pending: {money(totalPending)}</span>
+            </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+            <div className="card" style={{ padding: '16px', borderRadius: 'var(--radius-sm)' }}>
+                <div className="chart-title">Payment Distribution</div>
+                <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                        <Pie data={statusData} dataKey="value" cx="50%" cy="50%" outerRadius={80} innerRadius={50} paddingAngle={3}>
+                            {statusData.map((entry, i) => <Cell key={`${entry.name}-${i}`} fill={entry.color} />)}
+                        </Pie>
+                        <Tooltip formatter={(v) => [v, "Members"]} />
+                        <Legend verticalAlign="bottom" height={18} />
+                    </PieChart>
+                </ResponsiveContainer>
+            </div>
+            <div className="card" style={{ padding: '16px', borderRadius: 'var(--radius-sm)' }}>
+                <div className="chart-title">Daily Payment Trend</div>
+                <ResponsiveContainer width="100%" height={200}>
+                    <LineChart data={trendData} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="day" tick={{ fontSize: 11, fill: "var(--text3)" }} />
+                        <YAxis tick={{ fontSize: 11, fill: "var(--text3)" }} />
+                        <Tooltip formatter={(v) => [money(v), "Collected"]} />
+                        <Line type="monotone" dataKey="amount" stroke="var(--primary)" strokeWidth={3} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                </ResponsiveContainer>
+            </div>
+        </div>
+    </div>
+));
+
+const ExpenseAnalytics = memo(({ categoryData, topCategory, totalSpent }) => (
+    <div>
+        <div className="section-header" style={{ marginBottom: 14 }}>
+            <div style={{ flex: 1 }} />
+            <div className="chip-row">
+                <span className="chip">Total Spent: {money(totalSpent)}</span>
+                {topCategory && <span className="chip">Top Category: {topCategory.name}</span>}
+            </div>
+        </div>
+        {categoryData.length === 0 ? (
+            <div className="empty-state">No expense entries available yet.</div>
+        ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px' }}>
+                <div className="card" style={{ padding: '16px', borderRadius: 'var(--radius-sm)' }}>
+                    <div className="chart-title">Category Breakdown</div>
+                    <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                            <Pie data={categoryData} dataKey="amount" cx="50%" cy="50%" outerRadius={80} innerRadius={46} paddingAngle={2}>
+                                {categoryData.map((entry, i) => <Cell key={`${entry.name}-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                            </Pie>
+                            <Tooltip formatter={(v) => [money(v), "Spent"]} />
+                        </PieChart>
+                    </ResponsiveContainer>
+                </div>
+                <div className="card" style={{ padding: '16px', borderRadius: 'var(--radius-sm)' }}>
+                    <div className="chart-title">Top Expense Categories</div>
+                    <ResponsiveContainer width="100%" height={200}>
+                        <BarChart data={categoryData.slice(0, 8)} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: "var(--text3)" }} />
+                            <YAxis tick={{ fontSize: 10, fill: "var(--text3)" }} />
+                            <Tooltip formatter={(v) => [money(v), "Spent"]} />
+                            <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                                {categoryData.map((entry, i) => <Cell key={`${entry.name}-${i}-bar`} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
         )}
+    </div>
+));
 
-        {!loading && !loggedInUser && (
-          <LoginScreen
-            login={login}
-            users={users}
-            loginError={loginError}
-            setLoginError={setLoginError}
-          />
-        )}
+const InsightsPanel = memo(({ insights }) => (
+    <div className="card card-p">
+        <div className="section-header">
+            <div className="section-title">Smart Insights</div>
+        </div>
+        <div className="insight-stack">
+            {insights.map((ins) => (
+                <div className="insight-pill" key={ins.id}>
+                    <span>{ins.icon}</span>
+                    <span dangerouslySetInnerHTML={{ __html: ins.text }} />
+                </div>
+            ))}
+        </div>
+    </div>
+));
+
+const PersonalDashboard = memo(({ myPaid, perHead, rank, totalMembers }) => {
+    const remaining = Math.max(0, perHead - myPaid);
+    const pct = perHead > 0 ? Math.min((myPaid / perHead) * 100, 100) : 0;
+    return (
+        <div className="card card-p">
+            <div className="section-header">
+                <div className="section-title">Your Dashboard</div>
+            </div>
+            <div className="hero-grid" style={{ marginTop: 6 }}>
+                <AnimatedStatCard className="span-3" label="Paid" value={myPaid} formatter={money} sub="Your total contribution" icon="💳" />
+                <AnimatedStatCard className="span-3" label="Remaining" value={remaining} formatter={money} sub={remaining > 0 ? "Pending amount" : "All set"} icon="🎯" />
+                <StatCard className="span-3" label="Completion" value={`${pct.toFixed(1)}%`} sub="Payment completion" icon="📈" />
+                <StatCard className="span-3" label="Rank" value={`#${rank}/${Math.max(totalMembers, 1)}`} sub="Contribution ranking" icon="🏆" />
+            </div>
+            <ProgressBar pct={pct} />
+        </div>
+    );
+});
+
+const Leaderboard = memo(({ topContributors, fullyPaid, lowestPending }) => (
+    <div className="card card-p">
+        <div className="section-header sticky-header">
+            <div className="section-title">Leaderboard</div>
+            <div className="chip-row">
+                <span className="chip">Top Contributors</span>
+                <span className="chip">Fully Paid</span>
+            </div>
+        </div>
+        <div className="hero-grid" style={{ marginTop: 10 }}>
+            <div className="card chart-card span-4">
+                <div className="chart-title">Top Contributors</div>
+                {topContributors.slice(0, 6).map((p, i) => (
+                    <div key={`top-${p.name}`} className="leaderboard-row">
+                        <span className="rank-num">#{i + 1}</span>
+                        <span>{p.name}</span>
+                        <span className="amt">{money(p.paid)}</span>
+                    </div>
+                ))}
+            </div>
+            <div className="card chart-card span-4">
+                <div className="chart-title">Fully Paid Members</div>
+                {fullyPaid.length === 0 ? (
+                    <div className="empty-state" style={{ padding: 16 }}>No fully paid members yet.</div>
+                ) : fullyPaid.slice(0, 8).map((p, i) => (
+                    <div key={`full-${p.name}`} className="leaderboard-row">
+                        <span className="rank-num">#{i + 1}</span>
+                        <span>{p.name}</span>
+                        <span className="amt">{money(p.paid)}</span>
+                    </div>
+                ))}
+            </div>
+            <div className="card chart-card span-4">
+                <div className="chart-title">Lowest Pending</div>
+                {lowestPending.length === 0 ? (
+                    <div className="empty-state" style={{ padding: 16 }}>No pending balances.</div>
+                ) : lowestPending.slice(0, 8).map((p, i) => (
+                    <div key={`low-${p.name}`} className="leaderboard-row">
+                        <span className="rank-num">#{i + 1}</span>
+                        <span>{p.name}</span>
+                        <span style={{ fontFamily: "var(--mono)", color: "var(--amber)", fontWeight: 700 }}>{money(p.pending)}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+    </div>
+));
+
+const ImportantInfo = memo(({ infoEntries }) => {
+    const visible = infoEntries.slice(0, 12);
+    return (
+        <div className="card card-p">
+            <div className="section-header">
+                <div className="section-title">Important Info</div>
+            </div>
+            {visible.length === 0 ? (
+                <div className="empty-state">No INFO sheet entries found.</div>
+            ) : (
+                <div className="info-grid">
+                    {visible.map((it, i) => (
+                        <div className="info-card" key={`${it.key}-${i}`}>
+                            <div className="info-k">{it.key}</div>
+                            <div className="info-v">{it.value}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+});
+
+const WeatherPanel = memo(({ weather }) => {
+    if (!weather?.current) return null;
+    const icon = weatherCodeToIcon(weather.current.weather_code);
+    const daily = weather.daily || {};
+    const cards = (daily.time || []).slice(0, 5).map((t, idx) => ({
+        date: t,
+        icon: weatherCodeToIcon((daily.weather_code || [])[idx]),
+        max: (daily.temperature_2m_max || [])[idx],
+        min: (daily.temperature_2m_min || [])[idx],
+    }));
+
+    return (
+        <div className="card weather-card">
+            <div>
+                <div className="weather-main">
+                    <span className="weather-icon">{icon}</span>
+                    <span>{Math.round(weather.current.temperature_2m)}°C</span>
+                </div>
+                <div className="weather-meta">
+                    Feels like {Math.round(weather.current.apparent_temperature)}°C · Rain {weather.current.rain || 0} mm
+                </div>
+            </div>
+            <div>
+                <div className="chart-title" style={{ marginBottom: 8 }}>Trip Weather Outlook</div>
+                <div className="trip-days-grid">
+                    {cards.map((d) => (
+                        <div className="trip-day" key={d.date}>
+                            <div>{formatShortDate(d.date)}</div>
+                            <div style={{ fontSize: "1rem" }}>{d.icon}</div>
+                            <div>{Math.round(d.max || 0)}° / {Math.round(d.min || 0)}°</div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+});
+
+const RoomAllocation = memo(({ rooms, user, isAdmin }) => {
+    const shownRooms = isAdmin ? rooms : rooms.filter((r) => r.name === user.name);
+    return (
+        <div className="card card-p">
+            <div className="section-header">
+                <div className="section-title">Room Allocation</div>
+            </div>
+            {shownRooms.length === 0 ? (
+                <div className="empty-state">No room mapping found for current user.</div>
+            ) : (
+                <div className="room-grid">
+                    {shownRooms.map((room, i) => (
+                        <div className="room-card" key={`${room.name}-${room.roomNo}-${i}`}>
+                            <div className="room-no">Room {room.roomNo || "-"}</div>
+                            <div className="room-meta"><strong>Name:</strong> {room.name}</div>
+                            <div className="room-meta"><strong>Roommates:</strong> {room.roommates || "-"}</div>
+                            <div className="room-meta"><strong>Bus Seat:</strong> {room.busSeat || "-"}</div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+});
+
+const MemberList = memo(({ user, perHeadCost, payments }) => {
+    const [filter, setFilter] = useState("All");
+    const [search, setSearch] = useState("");
+    const [visible, setVisible] = useState(24);
+    const debounced = useDebouncedValue(search, 240);
+
+    const filtered = useMemo(() => {
+        const q = debounced.trim().toLowerCase();
+        return [...payments]
+            .sort((a, b) => {
+                if (a.name === user.name) return -1;
+                if (b.name === user.name) return 1;
+                return a.name.localeCompare(b.name);
+            })
+            .filter((p) => {
+                const label = getStatusMeta(p.paid, perHeadCost).label;
+                if (filter !== "All" && label !== filter) return false;
+                if (q && !p.name.toLowerCase().includes(q)) return false;
+                return true;
+            });
+    }, [debounced, filter, payments, perHeadCost, user.name]);
+
+    useEffect(() => setVisible(24), [debounced, filter]);
+
+    return (
+        <div className="card card-p">
+            <div className="section-header sticky-header">
+                <div className="section-title">Member Tracker</div>
+                <span className="chip">{payments.length} Members</span>
+            </div>
+            <div className="member-toolbar" style={{ marginTop: 8 }}>
+                <input
+                    className="search-input"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search members"
+                />
+                {["All", "Paid", "Partial", "Pending"].map((f) => (
+                    <button key={f} className={`filter-btn ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
+                        {f}
+                    </button>
+                ))}
+            </div>
+            <div style={{ maxHeight: 560, overflowY: "auto", paddingRight: 2 }}>
+                <div className="members-grid">
+                    {filtered.slice(0, visible).map((p) => {
+                        const st = getStatusMeta(p.paid, perHeadCost);
+                        return (
+                            <div className="member-card" key={p.name}>
+                                <div className="dot" style={{ width: 8, height: 8, borderRadius: "50%", background: st.color }} />
+                                <div className="member-name">{p.name}</div>
+                                <div style={{ textAlign: "right", minWidth: 88 }}>
+                                    <div style={{ color: st.color, fontFamily: "var(--mono)", fontWeight: 700, fontSize: "0.8rem" }}>{money(p.paid)}</div>
+                                    <div style={{ color: "var(--text3)", fontSize: "0.67rem", fontWeight: 700 }}>{st.label}</div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+            {filtered.length === 0 && <div className="empty-state">No matching members found.</div>}
+            {visible < filtered.length && (
+                <button className="filter-btn" style={{ marginTop: 10, width: "100%" }} onClick={() => setVisible((v) => v + 24)}>
+                    Load More
+                </button>
+            )}
+        </div>
+    );
+});
+
+const shouldShowCard = (cardName, cardConfig, user) => {
+    if (!cardConfig || cardConfig.length === 0) return true;
+
+    const normalize = (str) =>
+        String(str || "")
+            .toLowerCase()
+            .replace(/\s+/g, "")
+            .trim();
+
+    const config = cardConfig.find(
+        (c) => normalize(c.card_name) === normalize(cardName)
+    );
+
+    if (!config) return true;
+    if (!config.visible) return false;
+    if (config.admin_only && user.role !== "admin") return false;
+
+    return true;
+};
+
+function Dashboard({
+    user,
+    users,
+    payments,
+    paymentEntries,
+    trip,
+    expenses,
+    announcements,
+    timeline,
+    rooms,
+    infoEntries,
+    cardConfig,
+    weather,
+    darkMode,
+    setDarkMode,
+    logout,
+    lastUpdated,
+}) {
+    const [showScroll, setShowScroll] = useState(false);
+    const [showHeavy, setShowHeavy] = useState(false);
+
+    const memberCount = users.length;
+    const perHeadCost = Number(trip.per_head) || 0;
+    const myPaid = payments.find((p) => p.name === user.name)?.paid || 0;
+    const myPending = Math.max(0, perHeadCost - myPaid);
+    const targetMembers = Math.max(memberCount, EXPECTED_MIN_MEMBERS);
+    const targetAmount = targetMembers * perHeadCost;
+    const totalPaid = payments.reduce((sum, p) => sum + p.paid, 0);
+    const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalPending = payments.reduce((sum, p) => sum + Math.max(0, perHeadCost - p.paid), 0);
+    const groupPct = targetAmount > 0 ? Math.min((totalPaid / targetAmount) * 100, 100) : 0;
+
+    const sortedByPaid = useMemo(() => [...payments].sort((a, b) => b.paid - a.paid), [payments]);
+    const rank = Math.max(1, sortedByPaid.findIndex((p) => p.name === user.name) + 1);
+
+    const statusData = useMemo(() => {
+        const paid = payments.filter((p) => p.paid >= perHeadCost && perHeadCost > 0).length;
+        const partial = payments.filter((p) => p.paid > 0 && p.paid < perHeadCost).length;
+        const pending = payments.filter((p) => p.paid <= 0).length;
+        return [
+            { name: "Paid", value: paid, color: "#10b981" },
+            { name: "Partial", value: partial, color: "#f59e0b" },
+            { name: "Pending", value: pending, color: "#ef4444" },
+        ].filter((d) => d.value > 0);
+    }, [payments, perHeadCost]);
 
 
 
-        {!loading && loggedInUser && (
-          <Dashboard
-            user={loggedInUser}
-            payments={payments}
-            trip={tripInfo}
-            myPayment={myPaid}
-            perHeadCost={perHead}
-            paymentStatus={status}
-            logout={logout}
-            expenses={expenses}
-            memberCount={memberCount}
+    const paymentTrend = useMemo(() => {
+        const byDay = new Map();
+        paymentEntries.forEach((entry) => {
+            const date = toDate(entry.date);
+            const key = date ? date.toISOString().slice(0, 10) : "Unknown";
+            byDay.set(key, (byDay.get(key) || 0) + entry.amount);
+        });
 
-          />
-        )}
-      </div>
-    </React.Fragment>
-  );
+        return [...byDay.entries()]
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+            .slice(-14)
+            .map(([day, amount]) => ({ day: formatShortDate(day), amount }));
+    }, [paymentEntries]);
+
+    const categoryData = useMemo(() => {
+        const groups = new Map();
+        expenses.forEach((e) => {
+            const key = e.category || "Other";
+            groups.set(key, (groups.get(key) || 0) + e.amount);
+        });
+
+        const total = [...groups.values()].reduce((s, x) => s + x, 0) || 1;
+        return [...groups.entries()]
+            .map(([name, amount]) => ({ name, amount, pct: (amount / total) * 100 }))
+            .sort((a, b) => b.amount - a.amount);
+    }, [expenses]);
+
+    const topCategory = categoryData[0] || null;
+
+    const insights = useMemo(() => {
+        const completed = payments.filter((p) => p.paid >= perHeadCost && perHeadCost > 0).length;
+        const completedPct = memberCount > 0 ? (completed / memberCount) * 100 : 0;
+        const topContributor = sortedByPaid[0];
+        return [
+            {
+                id: "completed",
+                icon: "✅",
+                text: `<strong>${completedPct.toFixed(1)}%</strong> members completed payment (${completed}/${memberCount || 1})`,
+            },
+            {
+                id: "pending",
+                icon: "⏳",
+                text: `Total pending amount is <strong>${money(totalPending)}</strong>`,
+            },
+            {
+                id: "top",
+                icon: "🏆",
+                text: `Highest contributor: <strong>${topContributor?.name || "-"}</strong> (${money(topContributor?.paid || 0)})`,
+            },
+            {
+                id: "exp",
+                icon: "💸",
+                text: `Most expensive category: <strong>${topCategory?.name || "-"}</strong> (${money(topCategory?.amount || 0)})`,
+            },
+        ];
+    }, [memberCount, payments, perHeadCost, sortedByPaid, topCategory, totalPending]);
+
+    const fullyPaid = useMemo(() => sortedByPaid.filter((p) => p.paid >= perHeadCost && perHeadCost > 0), [sortedByPaid, perHeadCost]);
+    const lowestPending = useMemo(
+        () => payments
+            .map((p) => ({ ...p, pending: Math.max(0, perHeadCost - p.paid) }))
+            .filter((p) => p.pending > 0)
+            .sort((a, b) => a.pending - b.pending),
+        [payments, perHeadCost]
+    );
+
+    useEffect(() => {
+        const onScroll = () => setShowScroll(window.scrollY > 360);
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+
+    useEffect(() => {
+        const id = setTimeout(() => setShowHeavy(true), 180);
+        return () => clearTimeout(id);
+    }, []);
+
+    return (
+        <div className="app-shell" data-theme={darkMode ? "dark" : undefined}>
+            <div className="top-wrap">
+                <AnnouncementBar announcements={announcements} />
+                <nav className="top-bar">
+                    <div className="top-bar-brand">
+                        <div className="brand-dot">🧭</div>
+                        <span>{TRIP_BRAND} Premium Dashboard</span>
+                    </div>
+                    <div className="top-bar-right">
+                        {lastUpdated && <span className="last-updated">Updated {lastUpdated}</span>}
+                        <button className="icon-btn" onClick={() => setDarkMode((d) => !d)} title="Toggle theme">
+                            {darkMode ? "☀" : "☾"}
+                        </button>
+                        <div className="user-chip">
+                            <div className="avatar">{user.name.slice(0, 2).toUpperCase()}</div>
+                            <span className="user-name">{user.name}</span>
+                        </div>
+                        <button className="logout-btn" onClick={logout}>Sign out</button>
+                    </div>
+                </nav>
+            </div>
+
+            <div className="page-content">
+                <div className="hero-grid">
+                    <AnimatedStatCard className="span-3" label="Trip Budget" value={Number(trip.total_cost) || 0} formatter={money} sub="From trip sheet" icon="💰" />
+                    <AnimatedStatCard className="span-3" label="Per Head" value={perHeadCost} formatter={money} sub="Expected contribution" icon="👥" />
+                    <AnimatedStatCard className="span-3" label="Collected" value={totalPaid} formatter={money} sub={`${groupPct.toFixed(1)}% of target`} icon="📥" />
+                    <AnimatedStatCard className="span-3" label="Spent" value={totalSpent} formatter={money} sub="Total expense" icon="📤" />
+
+                    <CountdownCompact className="span-5" />
+                    <div className="span-7">
+                        <div className={`reminder-card ${myPending > 0 ? "pending" : ""}`}>
+                            <div className="rem-label">Reminder</div>
+                            <div className="rem-value">
+                                {myPending > 0 ? `You have pending ${money(myPending)}` : "You are fully paid"}
+                            </div>
+                            <div style={{ fontSize: "0.82rem", opacity: 0.9 }}>
+                                {myPending > 0 ? `Trip starts soon. Complete payment to avoid last-minute rush.` : "Awesome. You are ready for the trip."}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="card card-p">
+                    <div className="section-header">
+                        <div className="section-title">Group Progress Visualization</div>
+                        <span className="chip">Target {money(targetAmount)}</span>
+                    </div>
+                    <ProgressBar pct={groupPct} />
+                    <div className="progress-labels" style={{ marginTop: 10 }}>
+                        <span>Collected: {money(totalPaid)}</span>
+                        <span>Expected members: {targetMembers}</span>
+                    </div>
+                </div>
+
+                {shouldShowCard("Timeline", cardConfig, user) && (
+                    <CollapsibleSection id="timeline" title="Trip Timeline" defaultOpen={true}>
+                        <TimelineSection timeline={timeline} />
+                    </CollapsibleSection>
+                )}
+
+                {shouldShowCard("Payment Analytics", cardConfig, user) && (
+                    showHeavy ? (
+                        <CollapsibleSection id="payment_analytics" title="Payment Analytics" defaultOpen={true}>
+                            <PaymentAnalytics statusData={statusData} trendData={paymentTrend} totalPaid={totalPaid} totalPending={totalPending} />
+                        </CollapsibleSection>
+                    ) : (
+                        <div className="card card-p">
+                            <div className="section-title" style={{ marginBottom: 10 }}>Loading analytics</div>
+                            <div className="skeleton" style={{ height: 210 }} />
+                        </div>
+                    )
+                )}
+
+                {shouldShowCard("Expense Analytics", cardConfig, user) && (
+                    showHeavy && (
+                        <CollapsibleSection id="expense_analytics" title="Expense Analytics" defaultOpen={true}>
+                            <ExpenseAnalytics categoryData={categoryData} topCategory={topCategory} totalSpent={totalSpent} />
+                        </CollapsibleSection>
+                    )
+                )}
+
+                <div className="hero-grid">
+                    <div className="span-6"><PersonalDashboard myPaid={myPaid} perHead={perHeadCost} rank={rank} totalMembers={memberCount} /></div>
+                    <div className="span-6"><InsightsPanel insights={insights} /></div>
+                </div>
+
+                {shouldShowCard("Leaderboard", cardConfig, user) && (
+                    <CollapsibleSection id="leaderboard" title="Leaderboard" defaultOpen={true}>
+                        <div style={{ paddingTop: 0 }}>
+                            <Leaderboard topContributors={sortedByPaid} fullyPaid={fullyPaid} lowestPending={lowestPending} />
+                        </div>
+                    </CollapsibleSection>
+                )}
+
+                {shouldShowCard("Weather", cardConfig, user) && <WeatherPanel weather={weather} />}
+                {shouldShowCard("Important Info", cardConfig, user) && <ImportantInfo infoEntries={infoEntries} />}
+                {shouldShowCard("Room Allocation", cardConfig, user) && <RoomAllocation rooms={rooms} user={user} isAdmin={user.role === "admin"} />}
+
+                {shouldShowCard("Member Tracker", cardConfig, user) && user.role === "admin" && (
+                    <CollapsibleSection id="member_tracker" title="Member Tracker" defaultOpen={false}>
+                        <div style={{ paddingTop: 0 }}>
+                            <MemberList user={user} perHeadCost={perHeadCost} payments={payments} />
+                        </div>
+                    </CollapsibleSection>
+                )}
+            </div>
+
+            {showScroll && (
+                <button className="scroll-top" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+                    ↑
+                </button>
+            )}
+        </div>
+    );
 }
 
 function LoginScreen({ login, users, loginError, setLoginError }) {
-  const [name, setName] = useState("");
-  const [pass, setPass] = useState("");
+    const [name, setName] = useState("");
+    const [pass, setPass] = useState("");
 
-  const submit = (e) => {
-    e.preventDefault();
-    setLoginError(false);
-    login(name, pass);
-  };
+    const submit = (e) => {
+        e.preventDefault();
+        setLoginError(false);
+        login(name, pass);
+    };
 
-  return (
-    <div className="login-wrapper">
-      <form className="login-card" onSubmit={submit}>
-        <div className="logo-placeholder">🗺️</div>
-        <h2>IV YEAR CSE</h2>
+    return (
+        <div className="app-shell" style={{ display: "grid", placeItems: "center", padding: 20 }}>
+            <div className="card" style={{ width: "100%", maxWidth: 420, padding: 26 }}>
+                <div style={{ width: 52, height: 52, borderRadius: 14, display: "grid", placeItems: "center", fontSize: 24, color: "white", background: "linear-gradient(135deg, var(--primary), var(--primary-2))", marginBottom: 14 }}>🗺</div>
+                <div style={{ fontSize: "1.45rem", fontWeight: 800, marginBottom: 4 }}>Kerala Trip 2026</div>
+                <div style={{ color: "var(--text3)", marginBottom: 20, fontSize: "0.9rem" }}>{TRIP_BRAND} Member Portal</div>
 
-        <select
-          className="auth-input select-input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-        >
-          <option value="" disabled>Select Name</option>
-          {users.map((u) => (
-            <option key={u.name} value={u.name}>
-              {u.name}
-            </option>
-          ))}
-        </select>
+                <form onSubmit={submit}>
+                    <label style={{ display: "block", fontSize: "0.78rem", marginBottom: 6, color: "var(--text3)", fontWeight: 700 }}>Name</label>
+                    <select className={`search-input ${loginError ? "error" : ""}`} style={{ marginBottom: 14 }} value={name} onChange={(e) => setName(e.target.value)} required>
+                        <option value="" disabled>Select your name</option>
+                        {users.map((u) => <option key={u.name} value={u.name}>{u.name}</option>)}
+                    </select>
 
+                    <label style={{ display: "block", fontSize: "0.78rem", marginBottom: 6, color: "var(--text3)", fontWeight: 700 }}>Password</label>
+                    <input
+                        type="password"
+                        className={`search-input ${loginError ? "error" : ""}`}
+                        placeholder="Enter password"
+                        value={pass}
+                        onChange={(e) => setPass(e.target.value)}
+                        required
+                    />
 
+                    {loginError && <div style={{ marginTop: 10, color: "var(--red)", fontWeight: 700, fontSize: "0.82rem" }}>Invalid credentials.</div>}
 
-        <input
-          type="password"
-          className="auth-input"
-          placeholder="Password"
-          value={pass}
-          onChange={(e) => setPass(e.target.value)}
-          required
-        />
-
-        {loginError && (
-          <p className="login-error-message">Invalid name or password. Please try again.</p>
-        )}
-
-        <button className="login-btn">Enter</button>
-      </form>
-    </div>
-  );
+                    <button
+                        type="submit"
+                        style={{
+                            width: "100%",
+                            marginTop: 14,
+                            border: "none",
+                            cursor: "pointer",
+                            borderRadius: 12,
+                            padding: "12px 14px",
+                            color: "white",
+                            fontWeight: 800,
+                            background: "linear-gradient(135deg, var(--primary), var(--primary-2))",
+                            boxShadow: "0 10px 20px rgba(37,99,235,0.3)",
+                        }}
+                    >
+                        Sign In
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
 }
 
+const LoadingView = () => (
+    <div className="app-shell" style={{ display: "grid", placeItems: "center", padding: 20 }}>
+        <div style={{ width: "min(420px, 100%)" }}>
+            <div className="skeleton" style={{ height: 30, width: 200, marginBottom: 10 }} />
+            <div className="skeleton" style={{ height: 20, width: 120, marginBottom: 14 }} />
+            <div className="loading-skeleton-grid">
+                {[...Array(6)].map((_, i) => <div key={i} className="skeleton" style={{ height: 66 }} />)}
+            </div>
+        </div>
+    </div>
+);
 
-function ExpenseSplit({ expenses, moneyFormatter, user, moneyInHand, memberCount }) {
-  const totalCalculated = expenses.reduce((sum, item) => sum + item.cost, 0);
-  const effectiveMemberCount = memberCount > 0 ? memberCount : 1;
-
-  const totalPerMember = totalCalculated / effectiveMemberCount;
-
-  return (
-    <section className="expense-split-section">
-      <h2 className="section-title">Detailed Expense Tracker</h2>
-      <div className="expense-container">
-        <table className="expense-table">
-          <thead>
-            <tr>
-              <th style={{ width: '20%' }}>Category</th>
-              <th className="left-align" style={{ width: '15%' }}>Amount</th>
-              <th style={{ width: '20%' }}>Date</th>
-              <th style={{ width: '45%' }}>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {expenses.map((expense, index) => (
-              <tr key={index}>
-                <td className="expense-category">{expense.category}</td>
-                <td className="expense-cost right-align">{moneyFormatter(expense.cost)}</td>
-                <td className="expense-date">{expense.date}</td>
-                <td className="expense-notes text-wrap">{expense.notes}</td>
-              </tr>
+const Confetti = memo(({ show }) => {
+    if (!show) return null;
+    return (
+        <div className="confetti-wrap">
+            {[...Array(36)].map((_, i) => (
+                <span
+                    key={i}
+                    className="confetti-piece"
+                    style={{
+                        left: `${(i * 97) % 100}%`,
+                        background: CHART_COLORS[i % CHART_COLORS.length],
+                        animationDelay: `${(i % 12) * 70}ms`,
+                        opacity: 0.95,
+                    }}
+                />
             ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="expense-summary-grid">
-        {/* Total Spent */}
-        <div className="summary-card total">
-          <div className="summary-label">Total Spent (Breakdown)</div>
-          <div className="summary-value">
-            {moneyFormatter(totalCalculated)}
-          </div>
         </div>
+    );
+});
 
-        {user.role === "admin" && (
+export default function App() {
+    const [loggedInUser, setLoggedInUser] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [paymentEntries, setPaymentEntries] = useState([]);
+    const [tripInfo, setTripInfo] = useState({});
+    const [expenses, setExpenses] = useState([]);
+    const [announcements, setAnnouncements] = useState([]);
+    const [timeline, setTimeline] = useState([]);
+    const [rooms, setRooms] = useState([]);
+    const [infoEntries, setInfoEntries] = useState([]);
+    const [cardConfig, setCardConfig] = useState([]);
+    console.log(cardConfig);
+    const [weather, setWeather] = useState(null);
 
+    const [loading, setLoading] = useState(true);
+    const [loginError, setLoginError] = useState(false);
+    const [showWelcome, setShowWelcome] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState(null);
 
-          <div className="summary-card in-hand">
-            <div className="summary-label">Money In Hand</div>
-            <div
-              className={`summary-value ${moneyInHand >= 10000 ? "positive" : "negative"
-                }`}
-            >
-              {moneyFormatter(moneyInHand)}
-            </div>
-          </div>
+    const [darkMode, setDarkMode] = useState(() => {
+        const savedTheme = localStorage.getItem("tripTheme");
+        if (savedTheme === "dark") return true;
+        if (savedTheme === "light") return false;
+        return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
+    });
 
-        )}
+    const payments = useMemo(() => {
+        const base = new Map(users.map((u) => [u.name, 0]));
+        paymentEntries.forEach((entry) => {
+            if (!entry.name) return;
+            base.set(entry.name, (base.get(entry.name) || 0) + entry.amount);
+        });
+        return [...base.entries()].map(([name, paid]) => ({ name, paid }));
+    }, [users, paymentEntries]);
 
-        {/* Per Member */}
-        <div className="summary-card per-member">
-          <div className="summary-label">
-            Per Member Split ({memberCount})
-          </div>
-          <div className="summary-value">
-            {moneyFormatter(totalPerMember)}
-          </div>
-        </div>
-      </div>
+    useEffect(() => {
+        const saved = localStorage.getItem("tripUser");
+        if (saved) {
+            try {
+                setLoggedInUser(JSON.parse(saved));
+            } catch {
+                localStorage.removeItem("tripUser");
+            }
+        }
+    }, []);
 
+    useEffect(() => {
+        localStorage.setItem("tripTheme", darkMode ? "dark" : "light");
+    }, [darkMode]);
 
-      {/* Show a warning if the calculated sum doesn't match the trip's defined total_cost */}
-      {/* {totalCalculated !== totalCost && (
-        <div className="expense-warning">
-          ⚠️ Warning: Breakdown total ({moneyFormatter(totalCalculated)}) does not match trip's planned total ({moneyFormatter(totalCost)}).
-        </div>
-      )} */}
-    </section>
-  );
-}
+    useEffect(() => {
+        const fetchWeather = async () => {
+            try {
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_LAT}&longitude=${WEATHER_LON}&current=temperature_2m,apparent_temperature,rain,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto`;
+                const res = await fetch(url);
+                if (!res.ok) return;
+                const json = await res.json();
+                setWeather(json);
+            } catch (err) {
+                console.error("Weather fetch failed", err);
+            }
+        };
+        fetchWeather();
+    }, []);
 
-function Dashboard({
-  user,
-  payments,
-  trip,
-  myPayment,
-  perHeadCost,
-  paymentStatus,
-  logout,
-  expenses,
-  memberCount,
+    useEffect(() => {
+        const getCell = (row, i) => {
+            const c = row?.c?.[i];
+            if (!c) return "";
+            return c.v ?? c.f ?? "";
+        };
 
-}) {
+        const load = async () => {
+            try {
+                const [uS, pS, tS, eS, aS, tlS, rS, iS, cS] = await Promise.all([
+                    fetchSheet(USERS_SHEET),
+                    fetchSheet(PAYMENTS_SHEET),
+                    fetchSheet(TRIP_SHEET),
+                    fetchSheet(EXPENSES_SHEET),
+                    fetchSheet(ANNOUNCEMENTS_SHEET),
+                    fetchSheet(TIMELINE_SHEET),
+                    fetchSheet(ROOMS_SHEET),
+                    fetchSheet(INFO_SHEET),
+                    fetchSheet(CONFIG_SHEET),
+                ]);
 
-  const [myProgress, setMyProgress] = React.useState(0);
-  const [memberQuery, setMemberQuery] = useState("");
-  const [visibleMembers, setVisibleMembers] = useState(24);
+                const loadedUsers = (uS.rows || [])
+                    .map((r) => ({
+                        name: String(getCell(r, 0)).trim(),
+                        password: String(getCell(r, 1)).trim(),
+                        role: String(getCell(r, 2)).trim() || "member",
+                    }))
+                    .filter((u) => u.name && u.password && u.name.toLowerCase() !== "name");
+                setUsers(loadedUsers);
 
-  useEffect(() => {
-    if (!perHeadCost || perHeadCost <= 0) {
-      setMyProgress(0);
-      return;
-    }
+                const paymentRows = (pS.rows || [])
+                    .map((r) => ({
+                        name: String(getCell(r, 0)).trim(),
+                        amount: parseFloat(getCell(r, 1)) || 0,
+                        date: getCell(r, 2),
+                    }))
+                    .filter((p) => p.name && p.amount > 0);
+                setPaymentEntries(paymentRows);
 
-    const percent = Math.min((myPayment / perHeadCost) * 100, 100);
+                const trip = {};
+                (tS.rows || []).forEach((r) => {
+                    const key = String(getCell(r, 0)).trim();
+                    const rawValue = getCell(r, 1);
+                    if (!key) return;
+                    trip[key] = isNaN(rawValue) ? rawValue : parseFloat(rawValue);
+                });
+                if (!trip.trip_name) trip.trip_name = TRIP_BRAND;
+                if (!trip.start_date) trip.start_date = TRIP_START_AT;
+                setTripInfo(trip);
 
-    setTimeout(() => {
-      setMyProgress(percent);
-    }, 200);
-  }, [myPayment, perHeadCost]);
+                const loadedExpenses = (eS.rows || [])
+                    .map((r) => ({
+                        category: String(getCell(r, 0)).trim(),
+                        amount: parseFloat(getCell(r, 1)) || 0,
+                        date: getCell(r, 2),
+                        notes: String(getCell(r, 3) || "No notes"),
+                        addedBy: String(getCell(r, 4) || ""),
+                    }))
+                    .filter((e) => e.category && e.amount > 0);
+                setExpenses(loadedExpenses);
 
-  const [weather, setWeather] = useState(null);
+                const loadedAnnouncements = (aS.rows || [])
+                    .map((r) => ({
+                        message: String(getCell(r, 0)).trim(),
+                        date: getCell(r, 1),
+                        priority: String(getCell(r, 2) || "medium").toLowerCase(),
+                        active: parseBool(getCell(r, 3)),
+                    }))
+                    .filter((a) => a.message && a.active)
+                    .sort((a, b) => {
+                        const pa = a.priority === "high" ? 2 : a.priority === "medium" ? 1 : 0;
+                        const pb = b.priority === "high" ? 2 : b.priority === "medium" ? 1 : 0;
+                        if (pb !== pa) return pb - pa;
+                        return (toDate(b.date)?.getTime() || 0) - (toDate(a.date)?.getTime() || 0);
+                    });
+                setAnnouncements(loadedAnnouncements);
 
-  useEffect(() => {
-    const latitude = 10.0889;
-    const longitude = 77.0595;
+                const loadedTimeline = (tlS.rows || [])
+                    .map((r) => ({
+                        day: String(getCell(r, 0)).trim(),
+                        title: String(getCell(r, 1)).trim(),
+                        description: String(getCell(r, 2)).trim(),
+                        date: getCell(r, 3),
+                    }))
+                    .filter((t) => t.day || t.title || t.description)
+                    .sort((a, b) => {
+                        const da = toDate(a.date)?.getTime() || 0;
+                        const db = toDate(b.date)?.getTime() || 0;
+                        return da - db;
+                    });
+                setTimeline(loadedTimeline);
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,apparent_temperature,is_day,precipitation,rain,weather_code&daily=sunrise,sunset,uv_index_max&timezone=auto`;
+                const loadedRooms = (rS.rows || [])
+                    .map((r) => ({
+                        name: String(getCell(r, 0)).trim(),
+                        roomNo: String(getCell(r, 1)).trim(),
+                        roommates: String(getCell(r, 2)).trim(),
+                        busSeat: String(getCell(r, 3)).trim(),
+                    }))
+                    .filter((room) => room.name || room.roomNo);
+                setRooms(loadedRooms);
 
-    fetch(url)
-      .then(res => res.json())
-      .then(data => setWeather(data))
-      .catch(err => console.error("Weather fetch error:", err));
-  }, []);
+                const loadedInfo = (iS.rows || [])
+                    .map((r) => ({
+                        key: String(getCell(r, 0)).trim(),
+                        value: String(getCell(r, 1)).trim(),
+                    }))
+                    .filter((it) => it.key && it.value);
+                setInfoEntries(loadedInfo);
 
+                const loadedConfig = (cS.rows || [])
+                    .map((r) => ({
+                        card_name: String(getCell(r, 0)).trim(),
+                        visible: parseBool(getCell(r, 1)),
+                        admin_only: parseBool(getCell(r, 2)),
+                    }))
+                    .filter((c) => c.card_name);
+                setCardConfig(loadedConfig);
 
-  const money = (amt) =>
-    new Intl.NumberFormat("en-IN", {
-      style: "currency",
-      currency: "INR",
-    }).format(amt);
-
-  const styles = {
-    Paid: "status-paid",
-    Partial: "status-partial",
-    Pending: "status-pending",
-  };
-
-  const totalCollected = payments.reduce((sum, p) => sum + p.paid, 0);
-  const totalSpent = expenses.reduce((sum, e) => sum + e.cost, 0);
-  const moneyInHand = totalCollected - totalSpent;
-  const targetMembers = Math.max(memberCount, EXPECTED_MIN_MEMBERS);
-  const safeTargetAmount = perHeadCost > 0 ? perHeadCost * targetMembers : 0;
-  const groupProgress =
-    safeTargetAmount > 0 ? Math.min((totalCollected / safeTargetAmount) * 100, 100) : 0;
-
-  const filteredPayments = useMemo(() => {
-    const q = memberQuery.trim().toLowerCase();
-
-    return [...payments]
-      .sort((a, b) => {
-        if (a.name === user.name) return -1;
-        if (b.name === user.name) return 1;
-        return (a.name || "").localeCompare(b.name || "");
-      })
-      .filter((p) => (!q ? true : (p.name || "").toLowerCase().includes(q)));
-  }, [payments, memberQuery, user.name]);
-
-  const visiblePaymentRows = filteredPayments.slice(0, visibleMembers);
-
-  useEffect(() => {
-    setVisibleMembers(24);
-  }, [memberQuery]);
-
-
-
-  return (
-    <div className="dashboard-layout">
-      <header className="main-header">
-        <div className="header-title">
-          🗺️ <span className="trip-name">{TRIP_BRAND}</span> Kerala Trip Tracker
-        </div>
-
-        <div className="user-profile">
-          <span className="welcome-text">
-            Welcome, {user.name}
-          </span>
-          <button className="logout-btn" onClick={logout}>
-            Logout
-          </button>
-        </div>
-      </header>
-
-
-      <section className="stat-summary">
-        <h2 className="section-title">Trip Overview</h2>
-
-        <div className="grid-cards-3">
-          <div className="stat-card primary-card">
-            <div className="stat-label">Total Planned Cost</div>
-            <div className="stat-number">
-              {money(parseFloat(trip.total_cost) || 0)}
-            </div>
-            <div className="card-icon">💰</div>
-          </div>
-
-          <div className="stat-card secondary-card">
-            <div className="stat-label">Per Head Contribution</div>
-            <div className="stat-number">{money(perHeadCost)}</div>
-            <div className="card-icon">🧑‍🤝‍🧑</div>
-          </div>
-
-          {/* Replaced Days Left card with the detailed CountdownTimer */}
-          <CountdownTimer startDate={trip.start_date} />
-        </div>
-      </section>
-
-      <hr className="divider" />
-
-      {expenses.length > 0 ? (
-        <ExpenseSplit
-          expenses={expenses}
-          moneyFormatter={money}
-          memberCount={memberCount}
-          moneyInHand={moneyInHand}
-          user={user}
-        />
-
-      ) : (
-        <div className="expense-warning">
-          No expense records found. Please update the expense sheet.
-        </div>
-      )}
-
-      <hr className="divider" />
-
-      <section>
-        <h2 className="section-title">Your Contribution</h2>
-
-        <div
-          className={`my-payment-card status-${paymentStatus.toLowerCase()}`}
-          style={{ marginBottom: "30px" }}
-        >
-          <div className="payment-amount">{money(myPayment)}</div>
-          <div className="payment-amount-label">You Have Paid</div>
-
-          <div className="payment-status">
-            Status: {paymentStatus}
-            {paymentStatus !== "Paid" && (
-              <span className="due-info">
-                | Due: {money(perHeadCost - myPayment)}
-              </span>
-            )}
-          </div>
-
-
-          <div
-            style={{
-              width: "100%",
-              marginTop: "20px",
-              background: "#e5e7eb",
-              height: "12px",
-              borderRadius: "8px",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                height: "100%",
-                width: `${myProgress}%`,
-                background:
-                  paymentStatus === "Paid"
-                    ? "#10b981"
-                    : paymentStatus === "Partial"
-                      ? "#f59e0b"
-                      : "#ef4444",
-                borderRadius: "8px",
-                transition: "width 1.2s cubic-bezier(0.22, 0.61, 0.36, 1)",
-              }}
-            />
-          </div>
-
-        </div>
-      </section>
-
-      <hr className="divider" />
-
-      {/* TOTAL COLLECTION PROGRESS */}
-      <section style={{ marginTop: "30px" }}>
-        <h2 className="section-title">Group Payment Progress</h2>
-
-        <div className="progress-wrapper">
-          <div className="progress-labels">
-            <span>Collected: {money(totalCollected)}</span>
-            <span>Total Target ({targetMembers} members): {money(safeTargetAmount)}</span>
-          </div>
-
-          <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{
-                width: `${groupProgress}%`,
-              }}
-            />
-          </div>
-        </div>
-      </section>
-
-      {weather && (
-        <section style={{ marginBottom: "30px" }}>
-          <h2 className="section-title">Current Weather in Kerala</h2>
-
-          <div className="stat-card primary-card" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            <div style={{ fontSize: "2rem", fontWeight: "800" }}>
-              {weather.current.temperature_2m}°C
-            </div>
-            <div style={{ color: "#6b7280", fontWeight: "600" }}>
-              Rain: {weather.current.rain || 0} mm
-              <br />
-              UV Index: {weather.daily.uv_index_max[0]}
-            </div>
-            <div style={{ fontSize: "0.9rem", marginTop: "5px", opacity: 0.8 }}>
-              Sunrise: {weather.daily.sunrise[0].split("T")[1]}
-              <br />
-              Sunset: {weather.daily.sunset[0].split("T")[1]}
-            </div>
-            <div className="card-icon">🌤️</div>
-          </div>
-        </section>
-      )}
-
-
-
-      {user.role === "admin" && (
-        <section className="member-list">
-          <h2 className="section-title">Member Payment Tracker</h2>
-
-          <div className="member-tools">
-            <div className="roster-hint">
-              Optimized roster view for {EXPECTED_MIN_MEMBERS}-{EXPECTED_MAX_MEMBERS} members | Total loaded: {memberCount}
-            </div>
-            <input
-              className="member-search"
-              placeholder="Search members by name"
-              value={memberQuery}
-              onChange={(e) => setMemberQuery(e.target.value)}
-            />
-          </div>
-
-          <div className="members-grid">
-            {visiblePaymentRows.map((p) => {
-                const st =
-                  p.paid >= perHeadCost
-                    ? "Paid"
-                    : p.paid > 0
-                      ? "Partial"
-                      : "Pending";
-
-                return (
-                  <div
-                    className={`member-card ${p.name === user.name ? "current-user-highlight" : ""}`}
-                    key={p.name}
-                  >
-                    <div className="member-name">
-                      {p.name}
-                      {p.name === user.name && <span className="you-tag">You</span>}
-                    </div>
-
-                    <div className={`member-payment-status ${styles[st]}`}>
-                      <span className="status-dot" />
-                      <span className="paid-amount-value">{money(p.paid)}</span>
-                    </div>
-                  </div>
+                setLastUpdated(
+                    new Date().toLocaleTimeString("en-IN", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                    })
                 );
-              })}
-          </div>
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
 
-          {visibleMembers < filteredPayments.length && (
-            <button
-              className="load-more-btn"
-              onClick={() => setVisibleMembers((prev) => prev + 24)}
-            >
-              Load More Members
-            </button>
-          )}
-        </section>
-      )}
+        load();
+    }, []);
 
-      <button
-        className="scroll-top-btn"
-        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="white"
-          viewBox="0 0 24 24"
-          width="26"
-          height="26"
-        >
-          <path d="M12 4l-8 8h5v8h6v-8h5z" />
-        </svg>
-      </button>
+    const login = useCallback(
+        (name, pass) => {
+            const found = users.find(
+                (u) => u.name.trim() === name.trim() && String(u.password).trim() === String(pass).trim()
+            );
 
+            if (!found) {
+                setLoginError(true);
+                return;
+            }
 
+            setLoggedInUser(found);
+            localStorage.setItem("tripUser", JSON.stringify(found));
+            setShowWelcome(true);
+            setTimeout(() => setShowWelcome(false), 2100);
+            setLoginError(false);
+        },
+        [users]
+    );
 
-    </div>
-  );
+    const logout = useCallback(() => {
+        setLoggedInUser(null);
+        localStorage.removeItem("tripUser");
+    }, []);
+
+    useEffect(() => {
+        if (!loggedInUser) return;
+        const perHead = Number(tripInfo.per_head) || 0;
+        const myPaid = payments.find((p) => p.name === loggedInUser.name)?.paid || 0;
+        if (perHead > 0 && myPaid >= perHead) {
+            setShowConfetti(true);
+            const t = setTimeout(() => setShowConfetti(false), 2400);
+            return () => clearTimeout(t);
+        }
+        return undefined;
+    }, [loggedInUser, payments, tripInfo.per_head]);
+
+    return (
+        <div data-theme={darkMode ? "dark" : undefined} style={{ minHeight: "100vh" }}>
+            <GlobalStyles />
+            <Confetti show={showConfetti} />
+
+            {showWelcome && loggedInUser && (
+                <div className="welcome-splash">
+                    <div className="welcome-logo">🎒</div>
+                    <div className="welcome-name">Welcome, {loggedInUser.name}</div>
+                    <div className="welcome-sub">Your trip command center is ready</div>
+                </div>
+            )}
+
+            {loading && <LoadingView />}
+
+            {!loading && !loggedInUser && (
+                <LoginScreen login={login} users={users} loginError={loginError} setLoginError={setLoginError} />
+            )}
+
+            {!loading && loggedInUser && (
+                <Dashboard
+                    user={loggedInUser}
+                    users={users}
+                    payments={payments}
+                    paymentEntries={paymentEntries}
+                    trip={tripInfo}
+                    expenses={expenses}
+                    announcements={announcements}
+                    timeline={timeline}
+                    rooms={rooms}
+                    infoEntries={infoEntries}
+                    cardConfig={cardConfig}
+                    weather={weather}
+                    darkMode={darkMode}
+                    setDarkMode={setDarkMode}
+                    logout={logout}
+                    lastUpdated={lastUpdated}
+                />
+            )}
+        </div>
+    );
 }
-
-export default App;
