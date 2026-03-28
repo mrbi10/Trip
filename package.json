@@ -1,6 +1,6 @@
 {
   "name": "trip-dashboard",
-  "homepage":" https://cse.mnmjec.in",
+  "homepage": " https://cse.mnmjec.in",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -10,6 +10,7 @@
     "framer-motion": "^12.23.26",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "react-router-dom": "^7.13.2",
     "react-scripts": "5.0.1",
     "recharts": "^3.5.1",
     "web-vitals": "^5.1.0"
