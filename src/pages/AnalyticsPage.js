@@ -90,10 +90,23 @@ export default function AnalyticsPage({ payments, paymentEntries, expenses, trip
             .sort((a, b) => b.amount - a.amount);
     }, [expenses]);
 
-    const topContributors = useMemo(
-        () => [...payments].sort((a, b) => b.paid - a.paid).slice(0, 8),
-        [payments]
-    );
+    const contributionStats = useMemo(() => {
+        const totalMembers = payments.length;
+        const fullyPaid = payments.filter((p) => p.paid >= perHead && perHead > 0).length;
+        const partial = payments.filter((p) => p.paid > 0 && p.paid < perHead).length;
+        const pending = payments.filter((p) => p.paid <= 0).length;
+        const averagePaid = totalMembers ? totalPaid / totalMembers : 0;
+        const completionRate = totalMembers ? Math.round((fullyPaid / totalMembers) * 100) : 0;
+
+        return {
+            totalMembers,
+            fullyPaid,
+            partial,
+            pending,
+            averagePaid,
+            completionRate,
+        };
+    }, [payments, perHead, totalPaid]);
 
     const showPayment = showCard("Payment Analytics");
     const showExpense = showCard("Expense Analytics");
@@ -167,18 +180,35 @@ export default function AnalyticsPage({ payments, paymentEntries, expenses, trip
 
                 {showLeaderboard && (
                     <div style={cardStyle}>
-                        <h3 style={{ marginBottom: 10 }}>Top Contributors</h3>
-                        {topContributors.length === 0 ? (
-                            <div className="muted">No contributors yet.</div>
+                        <h3 style={{ marginBottom: 10 }}>Contribution Snapshot</h3>
+                        {contributionStats.totalMembers === 0 ? (
+                            <div className="muted">No payment entries yet.</div>
                         ) : (
                             <div className="list">
-                                {topContributors.map((member, idx) => (
-                                    <div className="list-row" key={`${member.name}-${idx}`}>
-                                        <span className="muted">#{idx + 1}</span>
-                                        <span>{member.name}</span>
-                                        <strong>{money(member.paid)}</strong>
-                                    </div>
-                                ))}
+                                <div className="list-row">
+                                    <span className="muted">Members</span>
+                                    <strong>{contributionStats.totalMembers}</strong>
+                                </div>
+                                <div className="list-row">
+                                    <span className="muted">Fully Paid</span>
+                                    <strong>{contributionStats.fullyPaid}</strong>
+                                </div>
+                                <div className="list-row">
+                                    <span className="muted">Partial</span>
+                                    <strong>{contributionStats.partial}</strong>
+                                </div>
+                                <div className="list-row">
+                                    <span className="muted">Pending</span>
+                                    <strong>{contributionStats.pending}</strong>
+                                </div>
+                                <div className="list-row">
+                                    <span className="muted">Average Paid</span>
+                                    <strong>{money(contributionStats.averagePaid)}</strong>
+                                </div>
+                                <div className="list-row">
+                                    <span className="muted">Completion Rate</span>
+                                    <strong>{contributionStats.completionRate}%</strong>
+                                </div>
                             </div>
                         )}
                     </div>

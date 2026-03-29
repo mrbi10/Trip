@@ -83,7 +83,7 @@ export default function DashboardPage({
     ];
 
     const stats = [
-        { label: "Trip Budget", value: money(Number(tripInfo.total_cost) || 0), sub: "From trip sheet" },
+        { label: "Trip Budget", value: money(Number(tripInfo.total_cost) || 0), sub: "Expected" },
         { label: "Per Head", value: money(perHead), sub: "Expected contribution" },
         { label: "Collected", value: money(totalPaid), sub: `${groupPct.toFixed(1)}% of target` },
         { label: "Spent", value: money(totalSpent), sub: "Total expenses logged" },
