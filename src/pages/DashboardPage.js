@@ -21,6 +21,54 @@ const formatDateTime = (value) => {
     });
 };
 
+const parseProfileDob = (value) => {
+    if (!value) return null;
+    if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+
+    const raw = String(value).trim();
+
+    const gvizMatch = raw.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/i);
+    if (gvizMatch) {
+        const parsed = new Date(
+            Number(gvizMatch[1]),
+            Number(gvizMatch[2]),
+            Number(gvizMatch[3]),
+            Number(gvizMatch[4] || 0),
+            Number(gvizMatch[5] || 0),
+            Number(gvizMatch[6] || 0)
+        );
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const slashFormatMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashFormatMatch) {
+        const day = Number(slashFormatMatch[1]);
+        const month = Number(slashFormatMatch[2]);
+        const year = Number(slashFormatMatch[3]);
+        const parsed = new Date(year, month - 1, day);
+        if (
+            parsed.getFullYear() === year &&
+            parsed.getMonth() === month - 1 &&
+            parsed.getDate() === day
+        ) {
+            return parsed;
+        }
+    }
+
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const formatDobDDMMYYYY = (value) => {
+    const date = parseProfileDob(value);
+    if (!date) return "-";
+
+    const dd = String(date.getDate()).padStart(2, "0");
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const yyyy = String(date.getFullYear());
+    return `${dd}-${mm}-${yyyy}`;
+};
+
 const cardStyle = {
     border: "1px solid var(--border)",
     borderRadius: 14,
@@ -30,6 +78,7 @@ const cardStyle = {
 
 export default function DashboardPage({
     user,
+    profile,
     users,
     payments,
     paymentEntries,
@@ -75,6 +124,34 @@ export default function DashboardPage({
 
     const latestAnnouncement = announcements[0] || null;
     const visibleInfo = infoEntries.slice(0, 8);
+
+    const computeAgeFromDob = (dob) => {
+        if (!dob) return "-";
+        const birth = parseProfileDob(dob);
+        if (!birth) return "-";
+        if (Number.isNaN(birth.getTime())) return "-";
+
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            age -= 1;
+        }
+
+        return age >= 0 ? String(age) : "-";
+    };
+
+    const profileDob = profile?.dob ? formatDobDDMMYYYY(profile.dob) : "-";
+    const profileAge = profile?.age ? String(profile.age) : computeAgeFromDob(profile?.dob);
+
+    const profileItems = [
+        { key: "Name", value: profile?.name || user.name || "-" },
+        { key: "Phone Number", value: profile?.phone || "-" },
+        { key: "Email", value: profile?.email || "-" },
+        { key: "DOB", value: profileDob },
+        { key: "Age", value: profileAge },
+        { key: "Gender", value: profile?.gender || "-" },
+    ];
 
     const insights = [
         `Fully paid members: ${fullyPaidCount}/${memberCount || 1}`,
@@ -138,6 +215,23 @@ export default function DashboardPage({
                                     : "No payments yet"}
                             </div>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {showCard("Profile") && (
+                <div style={cardStyle}>
+                    <div className="section-title-row" style={{ marginBottom: 10 }}>
+                        <h3>Profile</h3>
+                        <span className="chip">Personal Details</span>
+                    </div>
+                    <div className="info-grid">
+                        {profileItems.map((item) => (
+                            <div key={item.key} className="info-card">
+                                <div className="info-k">{item.key}</div>
+                                <div className="info-v">{item.value || "-"}</div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

@@ -14,6 +14,7 @@ const TIMELINE_SHEET = process.env.REACT_APP_TIMELINE_SHEET;
 const ROOMS_SHEET = process.env.REACT_APP_ROOMS_SHEET;
 const INFO_SHEET = process.env.REACT_APP_INFO_SHEET;
 const CONFIG_SHEET = process.env.REACT_APP_CONFIG_SHEET;
+const PERSONAL_DETAILS_SHEET = process.env.REACT_APP_PERSONAL_DETAILS_SHEET || "personaldetails";
 
 const TRIP_BRAND = "IV YEAR CSE";
 const WEATHER_LAT = 10.0889;
@@ -155,6 +156,11 @@ const shouldShowCard = (cardName, cardConfig, user) => {
 
     return true;
 };
+
+const normalizeHeader = (value) =>
+    String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
 
 function GlobalStyles() {
     return (
@@ -1152,6 +1158,7 @@ function AppContent() {
     const [timeline, setTimeline] = useState([]);
     const [rooms, setRooms] = useState([]);
     const [infoEntries, setInfoEntries] = useState([]);
+    const [personalDetails, setPersonalDetails] = useState([]);
     const [cardConfig, setCardConfig] = useState([]);
     const [weather, setWeather] = useState(null);
 
@@ -1174,6 +1181,14 @@ function AppContent() {
         });
         return [...base.entries()].map(([name, paid]) => ({ name, paid }));
     }, [users, paymentEntries]);
+
+    const currentProfile = useMemo(() => {
+        if (!loggedInUser?.name) return null;
+        const target = String(loggedInUser.name).trim().toLowerCase();
+        return (
+            personalDetails.find((item) => String(item.name).trim().toLowerCase() === target) || null
+        );
+    }, [loggedInUser, personalDetails]);
 
     useEffect(() => {
         const savedUser = localStorage.getItem("tripUser");
@@ -1213,9 +1228,15 @@ function AppContent() {
             return cell.v ?? cell.f ?? "";
         };
 
+        const getCellFormatted = (row, index) => {
+            const cell = row?.c?.[index];
+            if (!cell) return "";
+            return cell.f ?? cell.v ?? "";
+        };
+
         const load = async () => {
             try {
-                const [uS, pRaw, tS, eS, aS, tlS, rS, iS, cS] = await Promise.all([
+                const [uS, pRaw, tS, eS, aS, tlS, rS, iS, cS, pdS] = await Promise.all([
                     fetchSheet(USERS_SHEET),
                     fetchSheetText(PAYMENTS_SHEET),
                     fetchSheet(TRIP_SHEET),
@@ -1225,6 +1246,7 @@ function AppContent() {
                     fetchSheet(ROOMS_SHEET),
                     fetchSheet(INFO_SHEET),
                     fetchSheet(CONFIG_SHEET),
+                    fetchSheet(PERSONAL_DETAILS_SHEET),
                 ]);
 
                 const loadedUsers = (uS.rows || [])
@@ -1314,6 +1336,39 @@ function AppContent() {
                     }))
                     .filter((item) => item.key && item.value);
                 setInfoEntries(loadedInfo);
+
+                const personalRows = pdS.rows || [];
+                let loadedPersonalDetails = [];
+
+                if (personalRows.length > 0) {
+                    const headers = (personalRows[0]?.c || []).map((cell) => normalizeHeader(cell?.v ?? cell?.f ?? ""));
+                    const requiredHeaderSet = ["name", "phone", "phonenumber", "email", "dob", "dateofbirth", "age", "gender", "sex"];
+                    const hasHeaderRow = headers.some((h) => requiredHeaderSet.includes(h));
+                    const dataRows = hasHeaderRow ? personalRows.slice(1) : personalRows;
+
+                    const findHeaderIndex = (candidates) =>
+                        headers.findIndex((header) => candidates.includes(header));
+
+                    const colName = hasHeaderRow ? findHeaderIndex(["name", "fullname", "studentname", "membername"]) : 0;
+                    const colPhone = hasHeaderRow ? findHeaderIndex(["phone", "phonenumber", "mobile", "mobilenumber", "contact", "contactnumber"]) : 1;
+                    const colEmail = hasHeaderRow ? findHeaderIndex(["email", "emailid", "mail"]) : 2;
+                    const colDob = hasHeaderRow ? findHeaderIndex(["dob", "dateofbirth", "birthdate", "birthday"]) : 3;
+                    const colAge = hasHeaderRow ? findHeaderIndex(["age"]) : 4;
+                    const colGender = hasHeaderRow ? findHeaderIndex(["gender", "sex"]) : 5;
+
+                    loadedPersonalDetails = dataRows
+                        .map((row) => ({
+                            name: String(getCell(row, colName >= 0 ? colName : 0)).trim(),
+                            phone: String(getCell(row, colPhone >= 0 ? colPhone : 1)).trim(),
+                            email: String(getCell(row, colEmail >= 0 ? colEmail : 2)).trim(),
+                            dob: String(getCellFormatted(row, colDob >= 0 ? colDob : 3)).trim(),
+                            age: String(getCell(row, colAge >= 0 ? colAge : 4)).trim(),
+                            gender: String(getCell(row, colGender >= 0 ? colGender : 5)).trim(),
+                        }))
+                        .filter((item) => item.name);
+                }
+
+                setPersonalDetails(loadedPersonalDetails);
 
                 const loadedConfig = (cS.rows || [])
                     .map((row) => ({
@@ -1418,6 +1473,7 @@ function AppContent() {
                         element={
                             <DashboardPage
                                 user={loggedInUser}
+                                profile={currentProfile}
                                 users={users}
                                 payments={payments}
                                 paymentEntries={paymentEntries}
